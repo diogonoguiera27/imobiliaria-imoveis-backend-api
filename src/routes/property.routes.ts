@@ -2,11 +2,11 @@
 import { Router } from 'express';
 import { PrismaClient } from '../../generated/prisma';
 
-const router = Router();
+export const propertyRouter = Router();
 const prisma = new PrismaClient();
 
 // GET /properties - listar todos
-router.get('/', async (req, res) => {
+propertyRouter.get('/', async (req, res) => {
   try {
     const properties = await prisma.property.findMany();
     res.json(properties);
@@ -15,9 +15,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-
-
-router.get('/:id', async (req, res) => {
+propertyRouter.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
   try {
     const property = await prisma.property.findUnique({ where: { id } });
@@ -29,8 +27,9 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /properties - criar novo imóvel
-router.post('/', async (req, res) => {
+propertyRouter.post('/', async (req, res) => {
   try {
+    console.log("kaio")
     const data = req.body;
     const newProperty = await prisma.property.create({ data });
     res.status(201).json(newProperty);
@@ -41,7 +40,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /properties/:id - atualizar imóvel
-router.put('/:id', async (req, res) => {
+propertyRouter.put('/:id', async (req, res) => {
   const id = Number(req.params.id); 
   const data = req.body;
   try {
@@ -56,7 +55,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /properties/:id - deletar imóvel
-router.delete('/:id', async (req, res) => {
+propertyRouter.delete('/asdasd:id', async (req, res) => {
   const id = Number(req.params.id);
   try {
     await prisma.property.delete({ where: { id } });
@@ -65,5 +64,3 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Erro ao deletar imóvel' });
   }
 });
-
-export default router;

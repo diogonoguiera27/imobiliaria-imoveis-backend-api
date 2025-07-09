@@ -29,7 +29,6 @@ propertyRouter.get('/:id', async (req, res) => {
 // POST /properties - criar novo imóvel
 propertyRouter.post('/', async (req, res) => {
   try {
-    console.log("kaio")
     const data = req.body;
     const newProperty = await prisma.property.create({ data });
     res.status(201).json(newProperty);
@@ -55,7 +54,7 @@ propertyRouter.put('/:id', async (req, res) => {
 });
 
 // DELETE /properties/:id - deletar imóvel
-propertyRouter.delete('/asdasd:id', async (req, res) => {
+propertyRouter.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
   try {
     await prisma.property.delete({ where: { id } });

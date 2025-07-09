@@ -16,25 +16,22 @@ datasource db {
 
 model Property {
   id             Int      @id @default(autoincrement())
-  image          String
-  title          String
-  address        String
-  city           String
-  type           String
-  totalArea      Int
-  builtArea      Int?
-  bedrooms       Int
-  suites         Int?
-  bathrooms      Int
-  parkingSpots   Int
-  price          String
-  pricePerSqM    String?
-  condoFee       String?
-  propertyTax    String?
-  floor          String?
-  extraInfo      String?
-  description    String?
-  nearby         String[] 
+  imagem         String   
+  endereco       String   
+  bairro         String   
+  cidade         String   
+  tipo           String   
+  tipoNegocio    String   
+  categoria      String   
+  metragem       Int      
+  areaConstruida Int?     
+  quartos        Int      
+  suites         Int?     
+  banheiros      Int
+  vagas          Int      
+  preco          Float    
+  infoExtra      String?  
+  descricao      String?   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

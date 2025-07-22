@@ -37,12 +37,14 @@ model Property {
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  nome     String
-  telefone String
-  email    String @unique
-  senha    String
-  cidade   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         Int      @id @default(autoincrement())
+  nome       String
+  telefone   String
+  email      String   @unique
+  senha      String
+  cidade     String
+  avatarUrl  String?  // <- novo campo para imagem de perfil
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
+

@@ -31,40 +31,26 @@ userRouter.post("/register", async (req, res) => {
   }
 });
 
+// 🔐 Login
 userRouter.post("/login", async (req, res) => {
   const { email, senha } = req.body;
-
-  console.log("📩 [LOGIN] Requisição recebida:");
-  console.log("📧 E-mail recebido:", email);
-  console.log("🔐 Senha recebida:", senha);
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      console.log("❌ [LOGIN] Usuário não encontrado com e-mail:", email);
       return res.status(404).json({ error: "Usuário não encontrado" });
     }
 
-    console.log("✅ [LOGIN] Usuário encontrado:", {
-      id: user.id,
-      email: user.email,
-    });
-
     const senhaCorreta = await bcrypt.compare(senha, user.senha);
-    console.log("🔎 [LOGIN] Resultado da comparação de senha:", senhaCorreta);
 
     if (!senhaCorreta) {
-      console.log("❌ [LOGIN] Senha incorreta para o usuário:", email);
       return res.status(401).json({ error: "Senha inválida" });
     }
 
-    // Gerar token com payload
     const payload = { id: user.id, email: user.email };
     const secret = process.env.JWT_SECRET as string;
     const token = jwt.sign(payload, secret, { expiresIn: "2h" });
-
-    console.log("🔐 [LOGIN] Token JWT gerado:", token);
 
     res.json({
       message: "Login bem-sucedido",
@@ -78,14 +64,11 @@ userRouter.post("/login", async (req, res) => {
         avatarUrl: user.avatarUrl,
       },
     });
-
-    console.log("✅ [LOGIN] Resposta enviada com sucesso!");
   } catch (error) {
-    console.error("🔥 [LOGIN] Erro interno no login:", error);
+    console.error("Erro no login:", error);
     res.status(500).json({ error: "Erro no login" });
   }
 });
-
 
 // 🔍 Listar usuários (admin)
 userRouter.get("/", async (_req, res) => {
@@ -102,30 +85,6 @@ userRouter.delete("/:id", async (req, res) => {
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: "Erro ao deletar usuário" });
-  }
-});
-
-// ✏️ Atualizar usuário
-userRouter.put("/:id", async (req, res) => {
-  const id = Number(req.params.id);
-  const { nome, telefone, email, cidade, avatarUrl } = req.body;
-
-  try {
-    const usuarioAtualizado = await prisma.user.update({
-      where: { id },
-      data: {
-        nome,
-        telefone,
-        email,
-        cidade,
-        ...(avatarUrl && { avatarUrl }),
-      },
-    });
-
-    res.json(usuarioAtualizado);
-  } catch (error) {
-    console.error("Erro ao atualizar usuário:", error);
-    res.status(500).json({ error: "Erro ao atualizar usuário" });
   }
 });
 
@@ -161,22 +120,20 @@ userRouter.post(
   }
 );
 
+// ✉️ Atualizar e-mail
 userRouter.put("/:id/email", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
   const { newEmail, motivo } = req.body;
 
   try {
-    // Verifica se o usuário do token é o mesmo da rota
     if (!req.user || req.user.id !== id) {
       return res.status(403).json({ error: "Acesso negado." });
     }
 
-    // Validação do motivo
     if (!motivo || motivo.trim().length < 3) {
       return res.status(400).json({ error: "Motivo da alteração é obrigatório" });
     }
 
-    // Atualiza o e-mail
     const updatedUser = await prisma.user.update({
       where: { id },
       data: { email: newEmail },
@@ -188,15 +145,12 @@ userRouter.put("/:id/email", verifyToken, async (req, res) => {
   }
 });
 
-
-
-// Rota protegida com verifyToken
+// 🔒 Atualizar senha
 userRouter.put("/:id/password", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
   const { currentPassword, newPassword } = req.body;
 
   try {
-    // Verifica se o usuário do token é o mesmo da rota
     if (!req.user || req.user.id !== id) {
       return res.status(403).json({ error: "Acesso negado." });
     }
@@ -223,3 +177,81 @@ userRouter.put("/:id/password", verifyToken, async (req, res) => {
   }
 });
 
+// ✅ 🔄 Atualizar dados do usuário (única rota correta)
+userRouter.put("/:id", verifyToken, async (req, res) => {
+  const id = Number(req.params.id);
+  const { nome, telefone, cidade, avatarUrl } = req.body;
+
+  if (!req.user || req.user.id !== id) {
+    return res.status(403).json({ error: "Acesso negado." });
+  }
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        nome,
+        telefone,
+        cidade,
+        avatarUrl,
+      },
+    });
+
+    return res.status(200).json({ message: "Usuário atualizado", user: updatedUser });
+  } catch (error) {
+    console.error("Erro ao atualizar usuário:", error);
+    return res.status(500).json({ error: "Erro interno ao atualizar usuário" });
+  }
+});
+
+
+
+// GET /users/:id/overview → visão geral da conta
+userRouter.get("/:id/overview", verifyToken, async (req, res) => {
+  const userId = Number(req.params.id);
+
+  if (!req.user || req.user.id !== userId) {
+    return res.status(403).json({ error: "Acesso negado." });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        telefone: true,
+        cidade: true,
+        avatarUrl: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    const simulations = await prisma.simulation.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        title: true,
+        entry: true,
+        installments: true,
+        installmentValue: true,
+        date: true,
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
+
+    return res.status(200).json({
+      user,
+      simulations,
+    });
+  } catch (error) {
+    console.error("Erro ao buscar overview:", error);
+    return res.status(500).json({ error: "Erro ao carregar visão geral" });
+  }
+});

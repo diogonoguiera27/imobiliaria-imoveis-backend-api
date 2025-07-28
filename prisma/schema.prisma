@@ -1,12 +1,8 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -43,11 +39,12 @@ model User {
   email     String   @unique
   senha     String
   cidade    String
-  avatarUrl String? // <- novo campo para imagem de perfil
+  avatarUrl String? 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  simulations Simulation[] // <- Aqui está a relação inversa
+  simulations Simulation[]
+  preferencias NotificacaoPreferencia[]
 }
 
 model Simulation {
@@ -59,4 +56,17 @@ model Simulation {
   date             DateTime @default(now())
   user             User     @relation(fields: [userId], references: [id])
   userId           Int
+}
+
+model NotificacaoPreferencia {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  tipo      String
+  porEmail  Boolean  @default(true)
+  porPush   Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, tipo])
 }

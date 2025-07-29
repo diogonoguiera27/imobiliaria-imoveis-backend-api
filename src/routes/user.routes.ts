@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { PrismaClient } from "../../generated/prisma";
+import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import path from "path";
@@ -206,7 +206,7 @@ userRouter.put("/:id", verifyToken, async (req, res) => {
 
 
 
-// GET /users/:id/overview → visão geral da conta
+
 userRouter.get("/:id/overview", verifyToken, async (req, res) => {
   const userId = Number(req.params.id);
 
@@ -224,6 +224,8 @@ userRouter.get("/:id/overview", verifyToken, async (req, res) => {
         telefone: true,
         cidade: true,
         avatarUrl: true,
+        createdAt: true,
+        ultimoAcesso: true,
       },
     });
 
@@ -231,27 +233,25 @@ userRouter.get("/:id/overview", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Usuário não encontrado" });
     }
 
+    const favoritosCount = await prisma.favorite.count({
+      where: { userId },
+    });
+
     const simulations = await prisma.simulation.findMany({
       where: { userId },
-      select: {
-        id: true,
-        title: true,
-        entry: true,
-        installments: true,
-        installmentValue: true,
-        date: true,
-      },
-      orderBy: {
-        date: "desc",
-      },
     });
 
     return res.status(200).json({
       user,
-      simulations,
+      favoritosCount,
+      simulations, // ✅ adicionado novamente
     });
   } catch (error) {
     console.error("Erro ao buscar overview:", error);
     return res.status(500).json({ error: "Erro ao carregar visão geral" });
   }
 });
+
+
+
+

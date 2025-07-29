@@ -32,22 +32,23 @@ model Property {
   updatedAt      DateTime @updatedAt
   favorites      Favorite[]
 }
-
 model User {
-  id        Int      @id @default(autoincrement())
-  nome      String
-  telefone  String
-  email     String   @unique
-  senha     String
-  cidade    String
-  avatarUrl String? 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  nome         String
+  telefone     String
+  email        String   @unique
+  senha        String
+  cidade       String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  ultimoAcesso DateTime @default(now()) // ✅ Esse campo precisa estar aqui
 
-  simulations Simulation[]
+  simulations  Simulation[]
   preferencias NotificacaoPreferencia[]
-  favorites  Favorite[] 
+  favorites    Favorite[]
 }
+
 
 model Simulation {
   id               Int      @id @default(autoincrement())

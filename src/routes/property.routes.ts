@@ -1,11 +1,40 @@
-
 import { Router } from 'express';
 import { PrismaClient } from '../../generated/prisma';
 
 export const propertyRouter = Router();
 const prisma = new PrismaClient();
 
-// GET /properties - listar todos
+/**
+ * ✅ NOVA ROTA: Buscar múltiplos imóveis por array de IDs
+ * POST /properties/by-ids
+ * Exemplo de body: { ids: [1, 2, 3] }
+ */
+propertyRouter.post('/by-ids', async (req, res) => {
+  const { ids } = req.body;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Lista de IDs inválida ou vazia' });
+  }
+
+  try {
+    const properties = await prisma.property.findMany({
+      where: {
+        id: {
+          in: ids,
+        },
+      },
+    });
+
+    res.json(properties);
+  } catch (error) {
+    console.error('Erro ao buscar imóveis por IDs:', error);
+    res.status(500).json({ error: 'Erro ao buscar imóveis' });
+  }
+});
+
+/**
+ * GET /properties - Listar todos os imóveis
+ */
 propertyRouter.get('/', async (req, res) => {
   try {
     const properties = await prisma.property.findMany();
@@ -15,6 +44,9 @@ propertyRouter.get('/', async (req, res) => {
   }
 });
 
+/**
+ * GET /properties/:id - Buscar um imóvel por ID
+ */
 propertyRouter.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -26,7 +58,9 @@ propertyRouter.get('/:id', async (req, res) => {
   }
 });
 
-// POST /properties - criar novo imóvel
+/**
+ * POST /properties - Criar novo imóvel
+ */
 propertyRouter.post('/', async (req, res) => {
   try {
     const data = req.body;
@@ -38,10 +72,13 @@ propertyRouter.post('/', async (req, res) => {
   }
 });
 
-// PUT /properties/:id - atualizar imóvel
+/**
+ * PUT /properties/:id - Atualizar imóvel
+ */
 propertyRouter.put('/:id', async (req, res) => {
-  const id = Number(req.params.id); 
+  const id = Number(req.params.id);
   const data = req.body;
+
   try {
     const updated = await prisma.property.update({
       where: { id },
@@ -53,7 +90,9 @@ propertyRouter.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /properties/:id - deletar imóvel
+/**
+ * DELETE /properties/:id - Deletar imóvel
+ */
 propertyRouter.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
   try {

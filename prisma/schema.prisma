@@ -30,6 +30,7 @@ model Property {
   descricao      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  favorites      Favorite[]
 }
 
 model User {
@@ -45,6 +46,7 @@ model User {
 
   simulations Simulation[]
   preferencias NotificacaoPreferencia[]
+  favorites  Favorite[] 
 }
 
 model Simulation {
@@ -69,4 +71,16 @@ model NotificacaoPreferencia {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, tipo])
+}
+
+model Favorite {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  propertyId Int
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  @@unique([userId, propertyId]) // garante que o mesmo usuário não favorite duas vezes o mesmo imóvel
 }

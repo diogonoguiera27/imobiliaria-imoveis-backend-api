@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { PrismaClient } from '../../generated/prisma';
+import { verifyToken } from '../middlewares/verifyToken';
 
 export const propertyRouter = Router();
 const prisma = new PrismaClient();
 
 /**
  * ✅ NOVA ROTA: Buscar múltiplos imóveis por array de IDs
- * POST /properties/by-ids
+ * POST /property/by-ids
  * Exemplo de body: { ids: [1, 2, 3] }
  */
 propertyRouter.post('/by-ids', async (req, res) => {
@@ -33,19 +34,58 @@ propertyRouter.post('/by-ids', async (req, res) => {
 });
 
 /**
- * GET /properties - Listar todos os imóveis
+ * ✅ ROTA ATUALIZADA: GET /property
+ * Retorna os imóveis da cidade do usuário (se informado ?cidade=...) no topo da lista
  */
 propertyRouter.get('/', async (req, res) => {
+  const { cidade } = req.query;
+
   try {
-    const properties = await prisma.property.findMany();
+    let properties;
+
+    if (cidade && typeof cidade === "string") {
+      const propriedadesCidade = await prisma.property.findMany({
+        where: {
+          cidade: {
+            equals: cidade,
+            mode: "insensitive",
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      const outrasPropriedades = await prisma.property.findMany({
+        where: {
+          cidade: {
+            not: cidade,
+            mode: "insensitive",
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      properties = [...propriedadesCidade, ...outrasPropriedades];
+    } else {
+      properties = await prisma.property.findMany({
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+    }
+
     res.json(properties);
   } catch (error) {
+    console.error('Erro ao buscar imóveis:', error);
     res.status(500).json({ error: 'Erro ao buscar imóveis' });
   }
 });
 
 /**
- * GET /properties/:id - Buscar um imóvel por ID
+ * GET /property/:id - Buscar um imóvel por ID
  */
 propertyRouter.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
@@ -59,7 +99,7 @@ propertyRouter.get('/:id', async (req, res) => {
 });
 
 /**
- * POST /properties - Criar novo imóvel
+ * POST /property - Criar novo imóvel
  */
 propertyRouter.post('/', async (req, res) => {
   try {
@@ -73,7 +113,7 @@ propertyRouter.post('/', async (req, res) => {
 });
 
 /**
- * PUT /properties/:id - Atualizar imóvel
+ * PUT /property/:id - Atualizar imóvel
  */
 propertyRouter.put('/:id', async (req, res) => {
   const id = Number(req.params.id);
@@ -91,7 +131,7 @@ propertyRouter.put('/:id', async (req, res) => {
 });
 
 /**
- * DELETE /properties/:id - Deletar imóvel
+ * DELETE /property/:id - Deletar imóvel
  */
 propertyRouter.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
@@ -100,5 +140,45 @@ propertyRouter.delete('/:id', async (req, res) => {
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: 'Erro ao deletar imóvel' });
+  }
+});
+
+/**
+ * GET /property/stats/property-types - Estatísticas de tipos de imóveis
+ */
+propertyRouter.get('/stats/property-types', verifyToken, async (req, res) => {
+  try {
+    const allProperties = await prisma.property.findMany({
+      select: { tipo: true },
+    });
+
+    const stats = {
+      casas: 0,
+      apartamentos: 0,
+      condominio: 0,
+    };
+
+    allProperties.forEach((p) => {
+      const tipo = p.tipo.toLowerCase();
+
+      if (tipo.includes("casa") && !tipo.includes("apartamento")) {
+        stats.casas++;
+      } else if (tipo.includes("apartamento")) {
+        stats.apartamentos++;
+      } else if (tipo.includes("condominio") || tipo.includes("condomínio")) {
+        stats.condominio++;
+      }
+    });
+
+    const response = [
+      { name: "Casas", value: stats.casas },
+      { name: "Apartamentos", value: stats.apartamentos },
+      { name: "Condomínios", value: stats.condominio },
+    ];
+
+    res.json(response);
+  } catch (error) {
+    console.error("Erro ao buscar estatísticas:", error);
+    res.status(500).json({ error: "Erro ao gerar estatísticas" });
   }
 });

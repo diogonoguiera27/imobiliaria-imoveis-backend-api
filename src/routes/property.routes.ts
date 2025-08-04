@@ -1,6 +1,18 @@
 import { Router } from 'express';
-import { PrismaClient } from '../../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { verifyToken } from '../middlewares/verifyToken';
+
+import { Request } from "express";
+
+export interface AuthRequest extends Request {
+  user: {
+    id: number;
+    nome: string;
+    email: string;
+    tipo: string;
+  };
+}
+
 
 export const propertyRouter = Router();
 const prisma = new PrismaClient();
@@ -143,42 +155,6 @@ propertyRouter.delete('/:id', async (req, res) => {
   }
 });
 
-/**
- * GET /property/stats/property-types - Estatísticas de tipos de imóveis
- */
-propertyRouter.get('/stats/property-types', verifyToken, async (req, res) => {
-  try {
-    const allProperties = await prisma.property.findMany({
-      select: { tipo: true },
-    });
 
-    const stats = {
-      casas: 0,
-      apartamentos: 0,
-      condominio: 0,
-    };
 
-    allProperties.forEach((p) => {
-      const tipo = p.tipo.toLowerCase();
 
-      if (tipo.includes("casa") && !tipo.includes("apartamento")) {
-        stats.casas++;
-      } else if (tipo.includes("apartamento")) {
-        stats.apartamentos++;
-      } else if (tipo.includes("condominio") || tipo.includes("condomínio")) {
-        stats.condominio++;
-      }
-    });
-
-    const response = [
-      { name: "Casas", value: stats.casas },
-      { name: "Apartamentos", value: stats.apartamentos },
-      { name: "Condomínios", value: stats.condominio },
-    ];
-
-    res.json(response);
-  } catch (error) {
-    console.error("Erro ao buscar estatísticas:", error);
-    res.status(500).json({ error: "Erro ao gerar estatísticas" });
-  }
-});

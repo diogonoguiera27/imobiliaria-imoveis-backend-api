@@ -17,11 +17,7 @@ export interface AuthRequest extends Request {
 export const propertyRouter = Router();
 const prisma = new PrismaClient();
 
-/**
- * ✅ NOVA ROTA: Buscar múltiplos imóveis por array de IDs
- * POST /property/by-ids
- * Exemplo de body: { ids: [1, 2, 3] }
- */
+
 propertyRouter.post('/by-ids', async (req, res) => {
   const { ids } = req.body;
 
@@ -45,10 +41,7 @@ propertyRouter.post('/by-ids', async (req, res) => {
   }
 });
 
-/**
- * ✅ ROTA ATUALIZADA: GET /property
- * Retorna os imóveis da cidade do usuário (se informado ?cidade=...) no topo da lista
- */
+
 propertyRouter.get('/', async (req, res) => {
   const { cidade } = req.query;
 
@@ -96,9 +89,7 @@ propertyRouter.get('/', async (req, res) => {
   }
 });
 
-/**
- * GET /property/:id - Buscar um imóvel por ID
- */
+
 propertyRouter.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -110,9 +101,7 @@ propertyRouter.get('/:id', async (req, res) => {
   }
 });
 
-/**
- * POST /property - Criar novo imóvel
- */
+
 propertyRouter.post('/', async (req, res) => {
   try {
     const data = req.body;
@@ -124,9 +113,7 @@ propertyRouter.post('/', async (req, res) => {
   }
 });
 
-/**
- * PUT /property/:id - Atualizar imóvel
- */
+
 propertyRouter.put('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const data = req.body;
@@ -142,9 +129,7 @@ propertyRouter.put('/:id', async (req, res) => {
   }
 });
 
-/**
- * DELETE /property/:id - Deletar imóvel
- */
+
 propertyRouter.delete('/:id', async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -154,6 +139,7 @@ propertyRouter.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Erro ao deletar imóvel' });
   }
 });
+
 
 
 

@@ -45,6 +45,8 @@ model User {
   simulations  Simulation[]
   preferencias NotificacaoPreferencia[]
   favorites    Favorite[]
+
+  passwordResets     PasswordReset[]
 }
 
 model Simulation {
@@ -81,4 +83,17 @@ model Favorite {
   property   Property @relation(fields: [propertyId], references: [id])
 
   @@unique([userId, propertyId])
+}
+
+model PasswordReset {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id])
+  codeHash   String    // hash do código (não salve o código em texto puro)
+  expiresAt  DateTime  // expira em ~10 min
+  verifiedAt DateTime? // quando o código foi validado
+  usedAt     DateTime? // quando a senha foi trocada
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }

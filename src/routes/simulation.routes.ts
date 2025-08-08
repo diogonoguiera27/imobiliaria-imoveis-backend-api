@@ -1,15 +1,25 @@
 import { Router } from "express";
 import { PrismaClient } from "../../generated/prisma";
+import { verifyToken } from "../middlewares/verifyToken";
 
 export const simulationRouter = Router();
 const prisma = new PrismaClient();
 
-// Criar nova simulação
-simulationRouter.post("/", async (req, res) => {
-  const { userId, title, entry, installments, installmentValue } = req.body;
 
-  if (!userId || !title || !entry || !installments || !installmentValue) {
-    return res.status(400).json({ error: "Dados incompletos" });
+simulationRouter.post("/", verifyToken, async (req, res) => {
+  const userId = req.user.id;
+  const { title, entry, installments, installmentValue } = req.body;
+
+  
+  if (
+    !title || typeof title !== "string" ||
+    typeof entry !== "number" ||
+    typeof installments !== "number" ||
+    typeof installmentValue !== "number"
+  ) {
+    return res.status(400).json({
+      error: "Dados inválidos. Esperado: { title: string, entry: number, installments: number, installmentValue: number }"
+    });
   }
 
   try {
@@ -30,13 +40,18 @@ simulationRouter.post("/", async (req, res) => {
   }
 });
 
-// Listar simulações de um usuário
-simulationRouter.get("/users/:id/simulations", async (req, res) => {
-  const userId = Number(req.params.id);
+
+simulationRouter.get("/users/:id/simulations", verifyToken, async (req, res) => {
+  const requestedUserId = Number(req.params.id);
+  const loggedUserId = req.user.id;
+
+  if (!requestedUserId || requestedUserId !== loggedUserId) {
+    return res.status(403).json({ error: "Acesso negado." });
+  }
 
   try {
     const simulations = await prisma.simulation.findMany({
-      where: { userId },
+      where: { userId: requestedUserId },
       orderBy: { date: "desc" },
     });
 

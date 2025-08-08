@@ -10,6 +10,19 @@ notificationRouter.post("/", verifyToken, async (req, res) => {
   const { tipo, porEmail, porPush } = req.body;
   const userId = req.user.id;
 
+  if (
+    typeof tipo !== "string" ||
+    typeof porEmail !== "boolean" ||
+    typeof porPush !== "boolean"
+  ) {
+    return res
+      .status(400)
+      .json({
+        error:
+          "Dados inválidos. Esperado: { tipo: string, porEmail: boolean, porPush: boolean }",
+      });
+  }
+
   try {
     const preferencia = await prisma.notificacaoPreferencia.upsert({
       where: { userId_tipo: { userId, tipo } },
@@ -17,18 +30,16 @@ notificationRouter.post("/", verifyToken, async (req, res) => {
       create: { userId, tipo, porEmail, porPush },
     });
 
-    console.log(`[API] Preferência salva para tipo=${tipo}, porEmail=${porEmail}`);
-
     if (porEmail) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
 
       if (user?.email) {
         try {
-          await sendEmail(
-            user.email,
-            "Notificações ativadas",
-            `<p>Você ativou notificações por e-mail para: <strong>${tipo}</strong></p>`
-          );
+          await sendEmail({
+            to: user.email,
+            subject: "Notificações ativadas",
+            html: `<p>Você ativou notificações por e-mail para: <strong>${tipo}</strong></p>`,
+          });
           console.log(`[EMAIL] Enviado para ${user.email}`);
         } catch (emailError) {
           console.error("Erro ao enviar e-mail:", emailError);

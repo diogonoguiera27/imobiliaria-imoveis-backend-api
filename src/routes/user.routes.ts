@@ -328,5 +328,34 @@ userRouter.get("/:id/overview", verifyToken, async (req, res) => {
 });
 
 
+// 👇 Adicione logo após o POST /login, por exemplo
+userRouter.get("/me", verifyToken, async (req, res) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
 
+    const me = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        cidade: true,
+        telefone: true,
+        avatarUrl: true,
+        createdAt: true,
+      },
+    });
+
+    if (!me) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    return res.json(me);
+  } catch (error) {
+    console.error("GET /users/me error:", error);
+    return res.status(500).json({ error: "Erro ao carregar perfil" });
+  }
+});
 

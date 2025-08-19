@@ -12,7 +12,7 @@ const routes = Router();
 routes.use("/property", propertyRouter);
 routes.use("/users", userRouter);
 routes.use("/simulations", simulationRouter);
-routes.use("/notifications", notificationRouter); // ✅ adiciona a rota
+routes.use("/notifications", notificationRouter); 
 routes.use("/favorites", favoriteRouter);
 routes.use("/auth", authRouter);
 

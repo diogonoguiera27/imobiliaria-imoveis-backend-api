@@ -55,37 +55,26 @@ userRouter.post("/register", async (req, res) => {
 
 userRouter.post("/login", async (req, res) => {
   const { email, senha } = req.body;
-
-  // Validação de entrada
-  if (
-    !email || typeof email !== "string" ||
-    !senha || typeof senha !== "string"
-  ) {
-    return res.status(400).json({ error: "Email e senha são obrigatórios." });
-  }
+  if (!email || !senha) return res.status(400).json({ error: "Email e senha são obrigatórios." });
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const emailNorm = String(email).trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: emailNorm } });
+    if (!user) return res.status(401).json({ error: "Credenciais inválidas." });
 
-    if (!user) {
-      return res.status(404).json({ error: "Usuário não encontrado" });
-    }
-
-    const senhaCorreta = await bcrypt.compare(senha, user.senha);
-
-    if (!senhaCorreta) {
-      return res.status(401).json({ error: "Senha inválida" });
-    }
+    const ok = await bcrypt.compare(senha, user.senha);
+    if (!ok) return res.status(401).json({ error: "Credenciais inválidas." });
 
     const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      return res.status(500).json({ error: "Token JWT não configurado corretamente." });
-    }
+    if (!secret) return res.status(500).json({ error: "JWT_SECRET ausente" });
 
-    const payload = { id: user.id };
-    const token = jwt.sign(payload, secret, { expiresIn: "2h" });
+    const now = new Date();
+    await prisma.user.update({ where: { id: user.id }, data: { ultimoAcesso: now } });
 
-    res.json({
+    // Assine com { id, email } — casa com o verifyToken
+    const token = jwt.sign({ id: user.id, email: user.email }, secret, { expiresIn: "2h" });
+
+    return res.json({
       message: "Login bem-sucedido",
       token,
       user: {
@@ -95,13 +84,16 @@ userRouter.post("/login", async (req, res) => {
         cidade: user.cidade,
         telefone: user.telefone,
         avatarUrl: user.avatarUrl,
+        createdAt: user.createdAt,
+        ultimoAcesso: now.toISOString(),
       },
     });
   } catch (error) {
     console.error("Erro no login:", error);
-    res.status(500).json({ error: "Erro no login" });
+    return res.status(500).json({ error: "Erro no login" });
   }
 });
+
 
 
 userRouter.get("/", verifyToken, async (_req, res) => {
@@ -345,6 +337,7 @@ userRouter.get("/me", verifyToken, async (req, res) => {
         telefone: true,
         avatarUrl: true,
         createdAt: true,
+        ultimoAcesso: true, 
       },
     });
 
@@ -352,10 +345,11 @@ userRouter.get("/me", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Usuário não encontrado" });
     }
 
-    return res.json(me);
+    return res.status(200).json(me);
   } catch (error) {
     console.error("GET /users/me error:", error);
     return res.status(500).json({ error: "Erro ao carregar perfil" });
   }
 });
+
 

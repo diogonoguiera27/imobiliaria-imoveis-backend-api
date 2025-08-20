@@ -17,9 +17,9 @@ model Property {
   tipoNegocio    String
   categoria      String
   metragem       Int
-  areaConstruida Int?
+  areaConstruida Int?      // ← ainda opcional nesta etapa
   quartos        Int
-  suites         Int?
+  suites         Int?      // ← ainda opcional nesta etapa
   banheiros      Int
   vagas          Int
   preco          Float
@@ -27,7 +27,15 @@ model Property {
   descricao      String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  // vínculo com usuário (opcional nesta etapa para permitir backfill)
+  userId         Int?
+  user           User?     @relation(fields: [userId], references: [id])
+
   favorites      Favorite[]
+
+  @@index([cidade])
+  @@index([userId])
 }
 
 model User {
@@ -42,11 +50,11 @@ model User {
   updatedAt    DateTime  @updatedAt
   ultimoAcesso DateTime  @default(now())
 
+  properties   Property[]
   simulations  Simulation[]
   preferencias NotificacaoPreferencia[]
   favorites    Favorite[]
-
-  passwordResets     PasswordReset[]
+  passwordResets PasswordReset[]
 }
 
 model Simulation {
@@ -89,10 +97,10 @@ model PasswordReset {
   id         Int       @id @default(autoincrement())
   userId     Int
   user       User      @relation(fields: [userId], references: [id])
-  codeHash   String    // hash do código (não salve o código em texto puro)
-  expiresAt  DateTime  // expira em ~10 min
-  verifiedAt DateTime? // quando o código foi validado
-  usedAt     DateTime? // quando a senha foi trocada
+  codeHash   String
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  usedAt     DateTime?
   createdAt  DateTime  @default(now())
 
   @@index([userId])

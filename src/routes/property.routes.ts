@@ -280,23 +280,45 @@ propertyRouter.post(
   }
 );
 
-// ✏️ Atualizar imóvel
-propertyRouter.put("/:id(\\d+)", verifyToken, async (req: AuthRequest, res) => {
+// ✏️ Atualizar imóvel (com suporte a nova imagem)
+propertyRouter.put("/:id(\\d+)", verifyToken, upload.single("imagem"), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
 
   try {
-    const parsed = updatePropertySchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res
-        .status(400)
-        .json({ message: "Dados inválidos", errors: zodFieldErrors(parsed.error) });
-    }
-
+    // Verifica se o imóvel existe
     const exists = await prisma.property.findUnique({ where: { id } });
     if (!exists) return res.status(404).json({ message: "Imóvel não encontrado" });
 
     if (exists.userId && exists.userId !== req.user.id) {
       return res.status(403).json({ message: "Sem permissão para alterar este imóvel" });
+    }
+
+    // 🧠 Corrigir o campo `caracteristicas`
+    let caracteristicas: string[] | undefined = undefined;
+    try {
+      if (req.body.caracteristicas) {
+        caracteristicas = JSON.parse(req.body.caracteristicas);
+        if (!Array.isArray(caracteristicas) || !caracteristicas.every(c => typeof c === "string")) {
+          throw new Error("Formato inválido");
+        }
+      }
+    } catch (err) {
+      return res.status(400).json({ message: "Campo 'caracteristicas' mal formatado. Envie um array JSON válido." });
+    }
+
+    // Se tiver arquivo novo, substitui imagem
+    const imagem = req.file ? `/uploads/${req.file.filename}` : exists.imagem;
+
+    const parsed = updatePropertySchema.safeParse({
+      ...req.body,
+      caracteristicas,
+      imagem,
+    });
+
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ message: "Dados inválidos", errors: zodFieldErrors(parsed.error) });
     }
 
     const updated = await prisma.property.update({

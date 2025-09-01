@@ -1,8 +1,8 @@
-// src/middlewares/verifyToken.ts
+
 import { Request, Response, NextFunction } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 
-/** Payload esperado (email/nome/tipo são opcionais) */
+
 export type TokenPayload = JwtPayload & {
   id: number;
   email?: string;
@@ -10,7 +10,7 @@ export type TokenPayload = JwtPayload & {
   tipo?: string;
 };
 
-/** Augment do Express p/ habilitar req.user */
+
 declare global {
   namespace Express {
     interface Request {
@@ -19,7 +19,7 @@ declare global {
   }
 }
 
-/** Extrai o token Bearer de forma resiliente */
+
 function extractBearerToken(header?: string): string | null {
   if (!header) return null;
   const match = header.match(/^Bearer\s+(.+)$/i);

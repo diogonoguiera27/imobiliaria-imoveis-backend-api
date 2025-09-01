@@ -17,18 +17,18 @@ model Property {
   tipoNegocio    String
   categoria      String
   metragem       Int
-  areaConstruida Int?      // ← ainda opcional nesta etapa
+  areaConstruida Int?      
   quartos        Int
-  suites         Int?      // ← ainda opcional nesta etapa
+  suites         Int?      
   banheiros      Int
   vagas          Int
   preco          Float
-  infoExtra      String?
+  caracteristicas String[] @default([])
   descricao      String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  // vínculo com usuário (opcional nesta etapa para permitir backfill)
+ 
   userId         Int?
   user           User?     @relation(fields: [userId], references: [id])
 

@@ -27,7 +27,10 @@ model Property {
   descricao      String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-
+  views          PropertyView[]
+  contacts       PropertyContact[] 
+  
+  ativo          Boolean   @default(true)
  
   userId         Int?
   user           User?     @relation(fields: [userId], references: [id])
@@ -49,6 +52,8 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   ultimoAcesso DateTime  @default(now())
+  views          PropertyView[]
+  contacts       PropertyContact[]
 
   properties   Property[]
   simulations  Simulation[]
@@ -103,5 +108,34 @@ model PasswordReset {
   usedAt     DateTime?
   createdAt  DateTime  @default(now())
 
+  @@index([userId])
+}
+
+
+model PropertyView {
+  id         Int       @id @default(autoincrement())
+  property   Property  @relation(fields: [propertyId], references: [id])
+  propertyId Int
+  user       User?     @relation(fields: [userId], references: [id])
+  userId     Int?      // permite visualizações anônimas
+  viewedAt   DateTime  @default(now())
+
+  @@index([propertyId])
+  @@index([userId])
+}
+
+model PropertyContact {
+  id         Int       @id @default(autoincrement())
+  property   Property  @relation(fields: [propertyId], references: [id])
+  propertyId Int
+  user       User?     @relation(fields: [userId], references: [id]) // usuário autenticado que fez contato
+  userId     Int?      // pode ser nulo para contatos anônimos
+  nome       String?   // caso seja visitante anônimo
+  email      String?   // caso seja visitante anônimo
+  telefone   String?   // opcional
+  mensagem   String?
+  createdAt  DateTime  @default(now())
+
+  @@index([propertyId])
   @@index([userId])
 }

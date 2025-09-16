@@ -14,12 +14,12 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       return res.status(401).json({ error: "Usuário não autenticado" });
     }
 
-    // 📌 Total de imóveis do usuário
+   
     const totalImoveis = await prisma.property.count({
       where: { userId },
     });
 
-    // 📌 Ativos e inativos
+    
     const ativos = await prisma.property.count({
       where: { userId, ativo: true },
     });
@@ -27,14 +27,14 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       where: { userId, ativo: false },
     });
 
-    // 📌 Tipos de imóveis
+    
     const tiposDeImoveis = await prisma.property.groupBy({
       by: ["tipo"],
       where: { userId },
       _count: { tipo: true },
     });
 
-    // 📌 Distribuição por faixa de preço
+    
     const faixaDePreco = await prisma.property.findMany({
       where: { userId },
       select: { preco: true },
@@ -55,7 +55,7 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       else distribuicaoPorFaixa["+1M"]++;
     });
 
-    // 📌 Top 5 bairros do usuário
+    
     const imoveisPorBairro = await prisma.property.groupBy({
       by: ["bairro"],
       where: { userId },
@@ -64,7 +64,7 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       take: 5,
     });
 
-    // 📌 Top 5 imóveis mais visualizados nos últimos 30 dias
+    
     const viewsAgrupadas = await prisma.propertyView.groupBy({
       by: ["propertyId"],
       where: {
@@ -93,7 +93,7 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       };
     });
 
-    // 📌 Total de visualizações e contatos do usuário
+   
     const totalVisualizacoes = await prisma.propertyView.count({
       where: { property: { userId } },
     });
@@ -102,7 +102,7 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       where: { property: { userId } },
     });
 
-    // ✅ Retorno final
+    
     return res.json({
       totalImoveis,
       ativos,

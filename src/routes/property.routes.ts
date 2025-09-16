@@ -1,4 +1,4 @@
-// src/routes/property.routes.ts
+
 import { Router, Request } from "express";
 import { PrismaClient } from "@prisma/client";
 import { verifyToken } from "../middlewares/verifyToken";
@@ -16,12 +16,12 @@ export interface AuthRequest extends Request {
   };
 }
 
-// -------------------- Multer config --------------------
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // Salvar na pasta "uploads" da raiz do projeto
+    
     const dest = path.join(process.cwd(), "uploads");
-    fs.mkdirSync(dest, { recursive: true }); // garante que a pasta exista
+    fs.mkdirSync(dest, { recursive: true }); 
     cb(null, dest);
   },
   filename: (req, file, cb) => {
@@ -32,7 +32,7 @@ const storage = multer.diskStorage({
 
 export const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 }, 
   fileFilter: (req, file, cb) => {
     const allowed = ["image/jpeg", "image/png", "image/webp"];
     if (!allowed.includes(file.mimetype)) {
@@ -42,13 +42,13 @@ export const upload = multer({
   },
 });
 
-// -------------------- Prisma + Router --------------------
+
 export const propertyRouter = Router();
 const prisma = new PrismaClient();
 
-/* ------------------------- Validações (Zod) ------------------------- */
+
 const createPropertySchema = z.object({
-  imagem: z.string().min(1), // agora aceita path salvo
+  imagem: z.string().min(1), 
   endereco: z.string().min(3),
   bairro: z.string().min(2),
   cidade: z.string().min(2),
@@ -64,7 +64,7 @@ const createPropertySchema = z.object({
   vagas: z.coerce.number().int().min(0),
   preco: z.coerce.number().positive(),
 
-  // ✅ Novo campo substituindo infoExtra
+ 
   caracteristicas: z.array(z.string()).optional(),
 
   descricao: z.string().optional(),
@@ -76,9 +76,9 @@ function zodFieldErrors(err: z.ZodError) {
   return err.flatten().fieldErrors;
 }
 
-/* ----------------------------- Rotas ----------------------------- */
 
-// 📦 Buscar por lista de IDs
+
+
 propertyRouter.post("/by-ids", async (req, res) => {
   const { ids } = req.body;
 
@@ -100,7 +100,7 @@ propertyRouter.post("/by-ids", async (req, res) => {
   }
 });
 
-// 🧭 Listar (com filtro por cidade)
+
 propertyRouter.get("/", async (req, res) => {
   const { cidade } = req.query;
 
@@ -129,7 +129,7 @@ propertyRouter.get("/", async (req, res) => {
       properties = [...propriedadesCidade, ...outrasPropriedades];
     } else {
       properties = await prisma.property.findMany({
-        where: { ativo: true }, // 👈 só ativos
+        where: { ativo: true }, 
         orderBy: { createdAt: "desc" },
         include: { user: { select: { id: true, nome: true, telefone: true } } }
       });
@@ -156,7 +156,7 @@ propertyRouter.get("/mine", verifyToken, async (req: AuthRequest, res) => {
     return res.status(500).json({ message: "Erro ao listar meus imóveis" });
   }
 });
-// src/routes/propertyRouter.ts
+
 
 propertyRouter.get("/similares/:id(\\d+)", async (req, res) => {
   const id = Number(req.params.id);
@@ -168,13 +168,13 @@ propertyRouter.get("/similares/:id(\\d+)", async (req, res) => {
       return res.status(404).json({ error: "Imóvel não encontrado" });
     }
 
-    // Tentativa 1: aplicar todos os critérios (incluindo preço)
+    
     let similares = await prisma.property.findMany({
       where: {
         id: { not: id },
         cidade: imovelAtual.cidade,
         tipo: imovelAtual.tipo,
-         ativo: true, // 👈 só ativos
+         ativo: true, 
         preco: {
           gte: imovelAtual.preco * 0.5,
           lte: imovelAtual.preco * 1.5,
@@ -186,14 +186,14 @@ propertyRouter.get("/similares/:id(\\d+)", async (req, res) => {
     
     });
 
-    // Tentativa 2: remover o filtro de preço se encontrou poucos ou nenhum
+    
     if (similares.length < 4) {
       similares = await prisma.property.findMany({
         where: {
           id: { not: id },
           cidade: imovelAtual.cidade,
           tipo: imovelAtual.tipo,
-           ativo: true, // 👈 só ativos
+           ativo: true, 
         },
         orderBy: { createdAt: "desc" },
         take: 4,
@@ -208,7 +208,7 @@ propertyRouter.get("/similares/:id(\\d+)", async (req, res) => {
   }
 });
 
-// 🔎 Buscar por ID
+
 propertyRouter.get("/:id(\\d+)", async (req, res) => {
   const id = Number(req.params.id);
 
@@ -218,7 +218,7 @@ propertyRouter.get("/:id(\\d+)", async (req, res) => {
       include: { user: { select: { nome: true, telefone: true } } },
     });
 
-    if (!imovel || !imovel.ativo) {  // 👈 se não existir ou estiver inativo
+    if (!imovel || !imovel.ativo) {  
       return res.status(404).json({ error: "Imóvel não encontrado" });
     }
 
@@ -242,7 +242,7 @@ propertyRouter.patch("/:id(\\d+)/ativo", verifyToken, async (req: AuthRequest, r
       return res.status(400).json({ error: "Campo 'ativo' é obrigatório e boolean" });
     }
 
-    // Garante que o imóvel pertence ao usuário autenticado
+    
     const found = await prisma.property.findFirst({
       where: { id, userId: req.user.id },
       select: { id: true },
@@ -269,13 +269,13 @@ propertyRouter.post("/:id/view", async (req: AuthRequest, res) => {
   const userId = req.user?.id ?? null;
 
   try {
-    // Verifica se já houve uma view para este imóvel pelo mesmo userId (ou anônimo)
+   
     const duplicada = await prisma.propertyView.findFirst({
       where: {
         propertyId,
         userId,
         viewedAt: {
-          gte: new Date(Date.now() - 2000), // últimos 2 segundos
+          gte: new Date(Date.now() - 2000), 
         },
       },
     });
@@ -419,7 +419,7 @@ propertyRouter.put(
           .json({ message: "Sem permissão para alterar este imóvel" });
       }
 
-      // 🧠 Corrigir o campo `caracteristicas`
+      
       let caracteristicas: string[] | undefined = undefined;
       try {
         if (req.body.caracteristicas) {
@@ -440,7 +440,7 @@ propertyRouter.put(
           });
       }
 
-      // Se tiver arquivo novo, substitui imagem
+      
       const imagem = req.file ? `/uploads/${req.file.filename}` : exists.imagem;
 
       const parsed = updatePropertySchema.safeParse({
@@ -471,7 +471,7 @@ propertyRouter.put(
   }
 );
 
-// 🗑️ Deletar imóvel
+
 propertyRouter.delete(
   "/:id(\\d+)",
   verifyToken,

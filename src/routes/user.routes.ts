@@ -13,7 +13,7 @@ userRouter.post("/register", async (req, res) => {
   try {
     const { nome, telefone, email, senha, cidade } = req.body;
 
-    // Validação
+    
     if (
       !nome || typeof nome !== "string" ||
       !email || typeof email !== "string" ||
@@ -24,14 +24,14 @@ userRouter.post("/register", async (req, res) => {
       return res.status(400).json({ error: "Dados inválidos ou incompletos." });
     }
 
-    // Verifica se email já existe
+    
     const existingUser = await prisma.user.findUnique({ where: { email } });
 
     if (existingUser) {
       return res.status(400).json({ error: "Email já cadastrado." });
     }
 
-    // Criação
+    
     const hashedPassword = await bcrypt.hash(senha, 10);
     const novo = await prisma.user.create({
       data: {
@@ -43,7 +43,7 @@ userRouter.post("/register", async (req, res) => {
       },
     });
 
-    // Remove a senha da resposta
+    
     const { senha: _, ...userWithoutPassword } = novo;
 
     res.status(201).json(userWithoutPassword);
@@ -71,7 +71,7 @@ userRouter.post("/login", async (req, res) => {
     const now = new Date();
     await prisma.user.update({ where: { id: user.id }, data: { ultimoAcesso: now } });
 
-    // Assine com { id, email } — casa com o verifyToken
+    
     const token = jwt.sign({ id: user.id, email: user.email }, secret, { expiresIn: "2h" });
 
     return res.json({
@@ -121,7 +121,7 @@ userRouter.get("/", verifyToken, async (_req, res) => {
 userRouter.delete("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
 
-  // Verifica se o usuário autenticado está tentando deletar ele mesmo
+  
   if (!req.user || req.user.id !== id) {
     return res.status(403).json({ error: "Acesso negado." });
   }

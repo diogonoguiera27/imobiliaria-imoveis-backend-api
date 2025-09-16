@@ -6,13 +6,13 @@ import { sendEmail } from "../utils/sendEmail";
 export const authRouter = Router();
 const prisma = new PrismaClient();
 
-// helpers
+
 function generate6DigitCode() {
   return String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
 }
 const CODE_EXP_MIN = Number(process.env.RESET_CODE_EXP_MIN || 10);
 
-// 1) Enviar código para o e-mail
+
 authRouter.post("/forgot-password", async (req, res) => {
   const { email } = req.body as { email?: string };
 
@@ -22,12 +22,12 @@ authRouter.post("/forgot-password", async (req, res) => {
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    // resposta genérica para não vazar existência do e-mail
+    
     if (!user) {
       return res.json({ message: "Se houver conta, enviaremos um código." });
     }
 
-    // invalida resets pendentes não usados (higiene)
+    
     await prisma.passwordReset.deleteMany({
       where: { userId: user.id, usedAt: null },
     });
@@ -61,7 +61,7 @@ authRouter.post("/forgot-password", async (req, res) => {
   }
 });
 
-// 2) Verificar código
+
 authRouter.post("/verify-reset-code", async (req, res) => {
   const { email, code } = req.body as { email?: string; code?: string };
 
@@ -104,7 +104,7 @@ authRouter.post("/verify-reset-code", async (req, res) => {
   }
 });
 
-// 3) Redefinir senha (requer código verificado)
+
 authRouter.post("/reset-password", async (req, res) => {
   const { email, newPassword } = req.body as { email?: string; newPassword?: string };
 

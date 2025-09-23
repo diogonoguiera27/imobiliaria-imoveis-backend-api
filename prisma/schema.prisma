@@ -8,58 +8,60 @@ datasource db {
 }
 
 model Property {
-  id             Int       @id @default(autoincrement())
-  imagem         String
-  endereco       String
-  bairro         String
-  cidade         String
-  tipo           String
-  tipoNegocio    String
-  categoria      String
-  metragem       Int
-  areaConstruida Int?      
-  quartos        Int
-  suites         Int?      
-  banheiros      Int
-  vagas          Int
-  preco          Float
-  caracteristicas String[] @default([])
-  descricao      String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  views          PropertyView[]
-  contacts       PropertyContact[] 
-  
-  ativo          Boolean   @default(true)
- 
-  userId         Int?
-  user           User?     @relation(fields: [userId], references: [id])
+  id              Int               @id @default(autoincrement())
+  suites          Int?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  areaConstruida  Int?
+  bairro          String
+  banheiros       Int
+  categoria       String
+  cidade          String
+  descricao       String?
+  endereco        String
+  imagem          String
+  metragem        Int
+  preco           Float
+  quartos         Int
+  tipo            String
+  tipoNegocio     String
+  vagas           Int
+  userId          Int?
+  caracteristicas String[]          @default([])
+  ativo           Boolean           @default(true)
+  /// ✅ UUID já existente no banco
+  uuid            String?           @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  favorites      Favorite[]
+  favorites       Favorite[]
+  user            User?             @relation(fields: [userId], references: [id])
+  contacts        PropertyContact[]
+  views           PropertyView[]
 
   @@index([cidade])
   @@index([userId])
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  nome         String
-  telefone     String
-  email        String    @unique
-  senha        String
-  cidade       String
-  avatarUrl    String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  ultimoAcesso DateTime  @default(now())
-  views          PropertyView[]
-  contacts       PropertyContact[]
+  id             Int                      @id @default(autoincrement())
+  nome           String
+  telefone       String
+  email          String                   @unique
+  senha          String
+  cidade         String
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  avatarUrl      String?
+  ultimoAcesso   DateTime                 @default(now())
+  /// ✅ UUID já existente no banco
+  uuid           String?                  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  properties   Property[]
-  simulations  Simulation[]
-  preferencias NotificacaoPreferencia[]
-  favorites    Favorite[]
+  favorites      Favorite[]
+  preferencias   NotificacaoPreferencia[]
   passwordResets PasswordReset[]
+  properties     Property[]
+  contacts       PropertyContact[]
+  views          PropertyView[]
+  simulations    Simulation[]
 }
 
 model Simulation {
@@ -69,8 +71,11 @@ model Simulation {
   installments     Int
   installmentValue Float
   date             DateTime @default(now())
-  user             User     @relation(fields: [userId], references: [id])
   userId           Int
+  /// ✅ UUID já existente no banco
+  uuid             String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  user             User     @relation(fields: [userId], references: [id])
 }
 
 model NotificacaoPreferencia {
@@ -79,9 +84,12 @@ model NotificacaoPreferencia {
   tipo      String
   porEmail  Boolean  @default(true)
   porPush   Boolean  @default(false)
-  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  /// ✅ UUID já existente no banco
+  uuid      String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, tipo])
 }
@@ -91,9 +99,11 @@ model Favorite {
   userId     Int
   propertyId Int
   createdAt  DateTime @default(now())
+  /// ✅ UUID já existente no banco
+  uuid       String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  user       User     @relation(fields: [userId], references: [id])
   property   Property @relation(fields: [propertyId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, propertyId])
 }
@@ -101,40 +111,48 @@ model Favorite {
 model PasswordReset {
   id         Int       @id @default(autoincrement())
   userId     Int
-  user       User      @relation(fields: [userId], references: [id])
   codeHash   String
   expiresAt  DateTime
   verifiedAt DateTime?
   usedAt     DateTime?
   createdAt  DateTime  @default(now())
+  /// ✅ UUID já existente no banco
+  uuid       String?   @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  user       User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
 
-
 model PropertyView {
-  id         Int       @id @default(autoincrement())
-  property   Property  @relation(fields: [propertyId], references: [id])
+  id         Int      @id @default(autoincrement())
   propertyId Int
-  user       User?     @relation(fields: [userId], references: [id])
-  userId     Int?      // permite visualizações anônimas
-  viewedAt   DateTime  @default(now())
+  userId     Int?
+  viewedAt   DateTime @default(now())
+  /// ✅ UUID já existente no banco
+  uuid       String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  property   Property @relation(fields: [propertyId], references: [id])
+  user       User?    @relation(fields: [userId], references: [id])
 
   @@index([propertyId])
   @@index([userId])
 }
 
 model PropertyContact {
-  id         Int       @id @default(autoincrement())
-  property   Property  @relation(fields: [propertyId], references: [id])
+  id         Int      @id @default(autoincrement())
   propertyId Int
-  user       User?     @relation(fields: [userId], references: [id]) // usuário autenticado que fez contato
-  userId     Int?      // pode ser nulo para contatos anônimos
-  nome       String?   // caso seja visitante anônimo
-  email      String?   // caso seja visitante anônimo
-  telefone   String?   // opcional
+  userId     Int?
+  nome       String?
+  email      String?
+  telefone   String?
   mensagem   String?
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime @default(now())
+  /// ✅ UUID já existente no banco
+  uuid       String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  property   Property @relation(fields: [propertyId], references: [id])
+  user       User?    @relation(fields: [userId], references: [id])
 
   @@index([propertyId])
   @@index([userId])

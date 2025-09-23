@@ -7,6 +7,11 @@ import { verifyToken } from "../middlewares/verifyToken";
 export const dashboardRouter = Router();
 const prisma = new PrismaClient();
 
+/**
+ * 📊 Resumo do Dashboard do usuário logado
+ * - Continua usando `userId` numérico para relacionamentos internos.
+ * - Retorna também os `uuid` das propriedades e das mais vistas para uso público.
+ */
 dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
   try {
     const userId = req.user?.id;
@@ -14,12 +19,10 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       return res.status(401).json({ error: "Usuário não autenticado" });
     }
 
-   
-    const totalImoveis = await prisma.property.count({
-      where: { userId },
-    });
+    // 🔹 Total de imóveis cadastrados
+    const totalImoveis = await prisma.property.count({ where: { userId } });
 
-    
+    // 🔹 Imóveis ativos e inativos
     const ativos = await prisma.property.count({
       where: { userId, ativo: true },
     });
@@ -27,14 +30,14 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       where: { userId, ativo: false },
     });
 
-    
+    // 🔹 Agrupamento por tipo de imóvel
     const tiposDeImoveis = await prisma.property.groupBy({
       by: ["tipo"],
       where: { userId },
       _count: { tipo: true },
     });
 
-    
+    // 🔹 Distribuição por faixa de preço
     const faixaDePreco = await prisma.property.findMany({
       where: { userId },
       select: { preco: true },
@@ -55,7 +58,7 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       else distribuicaoPorFaixa["+1M"]++;
     });
 
-    
+    // 🔹 Top 5 bairros com mais imóveis
     const imoveisPorBairro = await prisma.property.groupBy({
       by: ["bairro"],
       where: { userId },
@@ -64,7 +67,7 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       take: 5,
     });
 
-    
+    // 🔹 Visualizações (últimos 30 dias)
     const viewsAgrupadas = await prisma.propertyView.groupBy({
       by: ["propertyId"],
       where: {
@@ -76,24 +79,28 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       take: 5,
     });
 
+    // 🔹 Busca propriedades mais visualizadas, trazendo também o UUID
     const propriedadesMaisVistas = await prisma.property.findMany({
       where: {
         id: { in: viewsAgrupadas.map((v) => v.propertyId) },
         userId,
       },
-      select: { id: true, tipo: true, bairro: true },
+      select: { id: true, uuid: true, tipo: true, bairro: true },
     });
 
     const topVisualizados = viewsAgrupadas.map((view) => {
       const prop = propriedadesMaisVistas.find((p) => p.id === view.propertyId);
       return {
-        id: view.propertyId,
-        titulo: prop ? `${prop.tipo} · ${prop.bairro}` : "Imóvel desconhecido",
+        id: view.propertyId,              // ID interno (continua disponível)
+        uuid: prop?.uuid ?? null,         // ✅ UUID público
+        titulo: prop
+          ? `${prop.tipo} · ${prop.bairro}`
+          : "Imóvel desconhecido",
         visualizacoes: view._count.propertyId,
       };
     });
 
-   
+    // 🔹 Totais de interações
     const totalVisualizacoes = await prisma.propertyView.count({
       where: { property: { userId } },
     });
@@ -102,7 +109,7 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
       where: { property: { userId } },
     });
 
-    
+    // ✅ Retorno final com IDs + UUIDs
     return res.json({
       totalImoveis,
       ativos,
@@ -122,8 +129,8 @@ dashboardRouter.get("/summary", verifyToken, async (req: any, res) => {
     });
   } catch (error) {
     console.error("Erro no dashboard summary:", error);
-    return res
-      .status(500)
-      .json({ error: "Erro ao carregar o resumo do dashboard" });
+    return res.status(500).json({
+      error: "Erro ao carregar o resumo do dashboard",
+    });
   }
 });

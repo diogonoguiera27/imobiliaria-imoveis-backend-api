@@ -96,9 +96,21 @@ userRouter.post("/login", async (req, res) => {
 
 
 
-userRouter.get("/", verifyToken, async (_req, res) => {
+userRouter.get("/", verifyToken, async (req, res) => {
   try {
+    // Query params: ?page=1&limit=10
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    // Contagem total de usuários
+    const totalUsers = await prisma.user.count();
+
+    // Buscar usuários paginados
     const users = await prisma.user.findMany({
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" }, // ordena mais recentes primeiro
       select: {
         id: true,
         nome: true,
@@ -107,15 +119,33 @@ userRouter.get("/", verifyToken, async (_req, res) => {
         telefone: true,
         avatarUrl: true,
         createdAt: true,
+        _count: {
+          select: { properties: true },
+        },
       },
     });
 
-    res.json(users);
+    // Formatar saída
+    const formattedUsers = users.map(u => ({
+      ...u,
+      quantidadeImoveis: u._count.properties,
+    }));
+
+    res.json({
+      data: formattedUsers,
+      pagination: {
+        total: totalUsers,
+        page,
+        limit,
+        totalPages: Math.ceil(totalUsers / limit),
+      },
+    });
   } catch (error) {
-    
+    console.error("Erro ao buscar usuários:", error);
     res.status(500).json({ error: "Erro ao buscar usuários" });
   }
 });
+
 
 
 userRouter.delete("/:id", verifyToken, async (req, res) => {

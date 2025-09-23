@@ -1,37 +1,34 @@
+
 import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import path from "path";
 import { uploadAvatar } from "../middlewares/upload";
 import { verifyToken } from "../middlewares/verifyToken";
 
 export const userRouter = Router();
 const prisma = new PrismaClient();
 
+
 userRouter.post("/register", async (req, res) => {
   try {
     const { nome, telefone, email, senha, cidade } = req.body;
 
-    
     if (
       !nome || typeof nome !== "string" ||
       !email || typeof email !== "string" ||
       !senha || typeof senha !== "string" ||
-      !cidade || typeof cidade !== "string" ||
-      !telefone || typeof telefone !== "string"
+      !telefone || typeof telefone !== "string" ||
+      !cidade
     ) {
       return res.status(400).json({ error: "Dados inválidos ou incompletos." });
     }
 
-    
     const existingUser = await prisma.user.findUnique({ where: { email } });
-
     if (existingUser) {
       return res.status(400).json({ error: "Email já cadastrado." });
     }
 
-    
     const hashedPassword = await bcrypt.hash(senha, 10);
     const novo = await prisma.user.create({
       data: {
@@ -43,9 +40,7 @@ userRouter.post("/register", async (req, res) => {
       },
     });
 
-    
     const { senha: _, ...userWithoutPassword } = novo;
-
     res.status(201).json(userWithoutPassword);
   } catch (error) {
     console.error("Erro ao criar usuário:", error);
@@ -53,9 +48,11 @@ userRouter.post("/register", async (req, res) => {
   }
 });
 
+
 userRouter.post("/login", async (req, res) => {
   const { email, senha } = req.body;
-  if (!email || !senha) return res.status(400).json({ error: "Email e senha são obrigatórios." });
+  if (!email || !senha)
+    return res.status(400).json({ error: "Email e senha são obrigatórios." });
 
   try {
     const emailNorm = String(email).trim().toLowerCase();
@@ -69,10 +66,14 @@ userRouter.post("/login", async (req, res) => {
     if (!secret) return res.status(500).json({ error: "JWT_SECRET ausente" });
 
     const now = new Date();
-    await prisma.user.update({ where: { id: user.id }, data: { ultimoAcesso: now } });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { ultimoAcesso: now },
+    });
 
-    
-    const token = jwt.sign({ id: user.id, email: user.email }, secret, { expiresIn: "2h" });
+    const token = jwt.sign({ id: user.id, email: user.email }, secret, {
+      expiresIn: "2h",
+    });
 
     return res.json({
       message: "Login bem-sucedido",
@@ -95,22 +96,14 @@ userRouter.post("/login", async (req, res) => {
 });
 
 
-
-userRouter.get("/", verifyToken, async (req, res) => {
+userRouter.get("/me", verifyToken, async (req, res) => {
   try {
-    // Query params: ?page=1&limit=10
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
+    if (!req.user?.id) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
 
-    // Contagem total de usuários
-    const totalUsers = await prisma.user.count();
-
-    // Buscar usuários paginados
-    const users = await prisma.user.findMany({
-      skip,
-      take: limit,
-      orderBy: { createdAt: "desc" }, // ordena mais recentes primeiro
+    const me = await prisma.user.findUnique({
+      where: { id: req.user.id },
       select: {
         id: true,
         nome: true,
@@ -119,14 +112,47 @@ userRouter.get("/", verifyToken, async (req, res) => {
         telefone: true,
         avatarUrl: true,
         createdAt: true,
-        _count: {
-          select: { properties: true },
-        },
+        ultimoAcesso: true,
       },
     });
 
-    // Formatar saída
-    const formattedUsers = users.map(u => ({
+    if (!me) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    return res.status(200).json(me);
+  } catch (error) {
+    console.error("GET /users/me error:", error);
+    return res.status(500).json({ error: "Erro ao carregar perfil" });
+  }
+});
+
+
+userRouter.get("/", verifyToken, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalUsers = await prisma.user.count();
+
+    const users = await prisma.user.findMany({
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        cidade: true,
+        telefone: true,
+        avatarUrl: true,
+        createdAt: true,
+        _count: { select: { properties: true } },
+      },
+    });
+
+    const formattedUsers = users.map((u) => ({
       ...u,
       quantidadeImoveis: u._count.properties,
     }));
@@ -147,11 +173,9 @@ userRouter.get("/", verifyToken, async (req, res) => {
 });
 
 
-
 userRouter.delete("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
 
-  
   if (!req.user || req.user.id !== id) {
     return res.status(403).json({ error: "Acesso negado." });
   }
@@ -172,13 +196,12 @@ interface MulterRequest extends Request {
 
 userRouter.post(
   "/upload/avatar/:id",
-  verifyToken, 
+  verifyToken,
   uploadAvatar.single("avatar"),
   async (req: MulterRequest, res: Response) => {
     const id = Number(req.params.id);
     const file = req.file;
 
-    // Proteção de acesso
     if (!req.user || req.user.id !== id) {
       return res.status(403).json({ error: "Acesso negado." });
     }
@@ -202,6 +225,7 @@ userRouter.post(
     }
   }
 );
+
 
 userRouter.put("/:id/email", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
@@ -231,7 +255,7 @@ userRouter.put("/:id/email", verifyToken, async (req, res) => {
   }
 });
 
-// 🔒 Atualizar senha
+
 userRouter.put("/:id/password", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
   const { currentPassword, newPassword } = req.body;
@@ -250,7 +274,6 @@ userRouter.put("/:id/password", verifyToken, async (req, res) => {
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-
     await prisma.user.update({
       where: { id },
       data: { senha: hashedNewPassword },
@@ -263,6 +286,7 @@ userRouter.put("/:id/password", verifyToken, async (req, res) => {
   }
 });
 
+
 userRouter.put("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
   const { nome, telefone, cidade, avatarUrl } = req.body;
@@ -271,17 +295,6 @@ userRouter.put("/:id", verifyToken, async (req, res) => {
     return res.status(403).json({ error: "Acesso negado." });
   }
 
-  
-  if (
-    (nome && typeof nome !== "string") ||
-    (telefone && typeof telefone !== "string") ||
-    (cidade && typeof cidade !== "string") ||
-    (avatarUrl && typeof avatarUrl !== "string")
-  ) {
-    return res.status(400).json({ error: "Dados inválidos no corpo da requisição." });
-  }
-
-  
   const data: any = {};
   if (nome) data.nome = nome;
   if (telefone) data.telefone = telefone;
@@ -300,8 +313,6 @@ userRouter.put("/:id", verifyToken, async (req, res) => {
     return res.status(500).json({ error: "Erro interno ao atualizar usuário" });
   }
 });
-
-
 
 
 userRouter.get("/:id/overview", verifyToken, async (req, res) => {
@@ -330,56 +341,12 @@ userRouter.get("/:id/overview", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Usuário não encontrado" });
     }
 
-    const favoritosCount = await prisma.favorite.count({
-      where: { userId },
-    });
+    const favoritosCount = await prisma.favorite.count({ where: { userId } });
+    const simulations = await prisma.simulation.findMany({ where: { userId } });
 
-    const simulations = await prisma.simulation.findMany({
-      where: { userId },
-    });
-
-    return res.status(200).json({
-      user,
-      favoritosCount,
-      simulations, 
-    });
+    return res.status(200).json({ user, favoritosCount, simulations });
   } catch (error) {
     console.error("Erro ao buscar overview:", error);
     return res.status(500).json({ error: "Erro ao carregar visão geral" });
   }
 });
-
-
-// 👇 Adicione logo após o POST /login, por exemplo
-userRouter.get("/me", verifyToken, async (req, res) => {
-  try {
-    if (!req.user?.id) {
-      return res.status(401).json({ error: "Não autenticado" });
-    }
-
-    const me = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: {
-        id: true,
-        nome: true,
-        email: true,
-        cidade: true,
-        telefone: true,
-        avatarUrl: true,
-        createdAt: true,
-        ultimoAcesso: true, 
-      },
-    });
-
-    if (!me) {
-      return res.status(404).json({ error: "Usuário não encontrado" });
-    }
-
-    return res.status(200).json(me);
-  } catch (error) {
-    console.error("GET /users/me error:", error);
-    return res.status(500).json({ error: "Erro ao carregar perfil" });
-  }
-});
-
-

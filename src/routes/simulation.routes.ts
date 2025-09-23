@@ -1,4 +1,4 @@
-// src/routes/simulation.routes.ts
+
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
 import { verifyToken } from "../middlewares/verifyToken";
@@ -6,10 +6,7 @@ import { verifyToken } from "../middlewares/verifyToken";
 export const simulationRouter = Router();
 const prisma = new PrismaClient();
 
-/**
- * ✅ Criar nova simulação
- * Retorna também o `uuid` gerado (mas o acesso continua via id interno)
- */
+
 simulationRouter.post("/", verifyToken, async (req, res) => {
   const userId = req.user.id;
   const { title, entry, installments, installmentValue } = req.body;
@@ -36,8 +33,8 @@ simulationRouter.post("/", verifyToken, async (req, res) => {
         installmentValue,
       },
       select: {
-        id: true,              // id interno (uso no painel)
-        uuid: true,            // uuid apenas para exibição, se necessário
+        id: true,              
+        uuid: true,            
         title: true,
         entry: true,
         installments: true,
@@ -53,11 +50,7 @@ simulationRouter.post("/", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * ✅ Listar simulações do usuário logado
- * - Suporta acessar por id numérico OU uuid do usuário
- * - Mas nunca expõe dados de outros usuários
- */
+
 simulationRouter.get("/users/:idOrUuid/simulations", verifyToken, async (req, res) => {
   const { idOrUuid } = req.params;
   const loggedUserId = req.user.id;
@@ -65,7 +58,7 @@ simulationRouter.get("/users/:idOrUuid/simulations", verifyToken, async (req, re
   try {
     let userIdToFetch: number | null = null;
 
-    // 🔎 Detecta automaticamente se é id numérico ou uuid
+    
     if (/^\d+$/.test(idOrUuid)) {
       const requestedUserId = Number(idOrUuid);
       if (requestedUserId !== loggedUserId) {
@@ -73,7 +66,7 @@ simulationRouter.get("/users/:idOrUuid/simulations", verifyToken, async (req, re
       }
       userIdToFetch = requestedUserId;
     } else {
-      // 🔒 Caso seja uuid, validamos que é do usuário logado
+      
       const user = await prisma.user.findUnique({
         where: { uuid: idOrUuid },
         select: { id: true },
@@ -93,8 +86,8 @@ simulationRouter.get("/users/:idOrUuid/simulations", verifyToken, async (req, re
       where: { userId: userIdToFetch },
       orderBy: { date: "desc" },
       select: {
-        id: true,              // id interno (para uso no painel)
-        uuid: true,            // uuid opcional para exibição
+        id: true,              
+        uuid: true,            
         title: true,
         entry: true,
         installments: true,

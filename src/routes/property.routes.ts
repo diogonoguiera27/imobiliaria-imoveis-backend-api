@@ -1,4 +1,4 @@
-// src/routes/property.routes.ts
+
 import { Router, Request } from "express";
 import { PrismaClient } from "@prisma/client";
 import { verifyToken } from "../middlewares/verifyToken";
@@ -13,7 +13,6 @@ export interface AuthRequest extends Request {
 
 const prisma = new PrismaClient();
 
-/* -------------------- Upload config -------------------- */
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dest = path.join(process.cwd(), "uploads");
@@ -37,12 +36,21 @@ export const upload = multer({
   },
 });
 
-/* -------------------- Schemas -------------------- */
+
+function normalize(str: string) {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+
 const baseSchema = z.object({
   imagem: z.string().min(1),
   endereco: z.string().min(3),
   bairro: z.string().min(2),
-  cidade: z.string().min(2),
+  cidade: z.string().min(2), 
   tipo: z.string().min(2),
   tipoNegocio: z.string().min(2),
   categoria: z.string().min(2),
@@ -62,9 +70,7 @@ const fieldErrors = (err: z.ZodError) => err.flatten().fieldErrors;
 
 export const propertyRouter = Router();
 
-/* =========================================================
-   Buscar vários imóveis por IDs (numéricos) OU UUIDs
-   ========================================================= */
+
 propertyRouter.post("/by-ids", async (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
@@ -94,54 +100,71 @@ propertyRouter.post("/by-ids", async (req, res) => {
   }
 });
 
-/* =========================================================
-   Listagem geral (opcional filtro por cidade)
-   ========================================================= */
+
 propertyRouter.get("/", async (req, res) => {
-  const { cidade } = req.query;
-
   try {
-    const baseInclude = {
-      user: { select: { id: true, uuid: true, nome: true, telefone: true } },
-    };
+    const { cidade, tipo, precoMax } = req.query;
+    const filters: any = { ativo: true };
 
-    if (cidade && typeof cidade === "string") {
-      const daCidade = await prisma.property.findMany({
-        where: { cidade: { equals: cidade, mode: "insensitive" }, ativo: true },
-        orderBy: { createdAt: "desc" },
-        include: baseInclude,
-      });
-      const outras = await prisma.property.findMany({
-        where: { cidade: { not: cidade, mode: "insensitive" }, ativo: true },
-        orderBy: { createdAt: "desc" },
-        include: baseInclude,
-      });
-      return res.json([...daCidade, ...outras]);
+    if (tipo && typeof tipo === "string") {
+      filters.tipo = { equals: tipo, mode: "insensitive" };
+    }
+    if (precoMax && !isNaN(Number(precoMax))) {
+      filters.preco = { gte: 50_000, lte: Number(precoMax) };
     }
 
-    const all = await prisma.property.findMany({
-      where: { ativo: true },
+    let list = await prisma.property.findMany({
+      where: filters,
       orderBy: { createdAt: "desc" },
-      include: baseInclude,
+      include: {
+        user: { select: { id: true, uuid: true, nome: true, telefone: true } },
+      },
     });
-    res.json(all);
+
+    if (cidade && typeof cidade === "string") {
+      const normalizado = normalize(cidade);
+      list = list.filter((p) => p.cidade && normalize(p.cidade) === normalizado);
+    }
+
+    res.json(list);
   } catch (err) {
     console.error("Erro GET /property:", err);
     res.status(500).json({ error: "Erro ao buscar imóveis" });
   }
 });
 
-/* =========================================================
-   Meus imóveis
-   ========================================================= */
+
+propertyRouter.post("/busca", async (req, res) => {
+  try {
+    const { tipo, cidade } = req.body as { tipo?: string; cidade?: string };
+
+    let list = await prisma.property.findMany({
+      where: { ativo: true },
+      include: { user: { select: { id: true, uuid: true, nome: true, telefone: true } } },
+    });
+
+    if (tipo) {
+      list = list.filter((p) => normalize(p.tipo) === normalize(tipo));
+    }
+    if (cidade) {
+      const normalizado = normalize(cidade);
+      list = list.filter((p) => p.cidade && normalize(p.cidade) === normalizado);
+    }
+
+    res.json(list);
+  } catch (err) {
+    console.error("Erro POST /property/busca:", err);
+    res.status(500).json({ error: "Erro ao buscar imóveis" });
+  }
+});
+
+
 propertyRouter.get("/mine", verifyToken, async (req: AuthRequest, res) => {
   try {
     const list = await prisma.property.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: "desc" },
-      include: {
-        user: { select: { id: true, uuid: true, nome: true, telefone: true } },
-      },
+      include: { user: { select: { id: true, uuid: true, nome: true, telefone: true } } },
     });
     res.json(list);
   } catch (err) {
@@ -150,9 +173,6 @@ propertyRouter.get("/mine", verifyToken, async (req: AuthRequest, res) => {
   }
 });
 
-/* =========================================================
-   Imóveis similares (aceita id ou uuid)
-   ========================================================= */
 propertyRouter.get("/similares/:identifier", async (req, res) => {
   const { identifier } = req.params;
   try {
@@ -163,47 +183,36 @@ propertyRouter.get("/similares/:identifier", async (req, res) => {
     const current = await prisma.property.findUnique({ where: whereUnique });
     if (!current) return res.status(404).json({ error: "Imóvel não encontrado" });
 
-    let similares = await prisma.property.findMany({
+    const normalizadoCidade = current.cidade ? normalize(current.cidade) : null;
+    const normalizadoTipo = normalize(current.tipo);
+
+    const similares = await prisma.property.findMany({
       where: {
         id: { not: current.id },
-        cidade: current.cidade,
-        tipo: current.tipo,
         ativo: true,
         preco: { gte: current.preco * 0.5, lte: current.preco * 1.5 },
       },
       orderBy: { createdAt: "desc" },
       take: 4,
-      include: {
-        user: { select: { id: true, uuid: true, nome: true, telefone: true } },
-      },
+      include: { user: { select: { id: true, uuid: true, nome: true, telefone: true } } },
     });
 
-    if (similares.length < 4) {
-      similares = await prisma.property.findMany({
-        where: {
-          id: { not: current.id },
-          cidade: current.cidade,
-          tipo: current.tipo,
-          ativo: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 4,
-        include: {
-          user: { select: { id: true, uuid: true, nome: true, telefone: true } },
-        },
-      });
-    }
+    const filtrados = similares.filter(
+      (p) =>
+        normalize(p.tipo) === normalizadoTipo &&
+        p.cidade &&
+        normalizadoCidade &&
+        normalize(p.cidade) === normalizadoCidade
+    );
 
-    res.json(similares);
+    res.json(filtrados);
   } catch (err) {
     console.error("Erro /similares:", err);
     res.status(500).json({ error: "Erro ao buscar similares" });
   }
 });
 
-/* =========================================================
-   Buscar imóvel único (aceita id ou uuid)
-   ========================================================= */
+
 propertyRouter.get("/:identifier", async (req, res) => {
   const { identifier } = req.params;
   const whereUnique = /^\d+$/.test(identifier)
@@ -213,12 +222,9 @@ propertyRouter.get("/:identifier", async (req, res) => {
   try {
     const imovel = await prisma.property.findUnique({
       where: whereUnique,
-      include: {
-        user: { select: { id: true, uuid: true, nome: true, telefone: true } },
-      },
+      include: { user: { select: { id: true, uuid: true, nome: true, telefone: true } } },
     });
-    if (!imovel || !imovel.ativo)
-      return res.status(404).json({ error: "Imóvel não encontrado" });
+    if (!imovel || !imovel.ativo) return res.status(404).json({ error: "Imóvel não encontrado" });
 
     res.json(imovel);
   } catch (err) {
@@ -227,134 +233,88 @@ propertyRouter.get("/:identifier", async (req, res) => {
   }
 });
 
-/* =========================================================
-   Criar imóvel (retorna id e uuid)
-   ========================================================= */
-propertyRouter.post(
-  "/",
-  verifyToken,
-  upload.single("imagem"),
-  async (req: AuthRequest, res) => {
-    try {
-      if (!req.file)
-        return res.status(400).json({ message: "Imagem é obrigatória" });
 
-      let caracteristicas: string[] | undefined;
-      if (req.body.caracteristicas) {
-        try {
-          const arr = JSON.parse(req.body.caracteristicas);
-          if (!Array.isArray(arr) || !arr.every((c) => typeof c === "string"))
-            throw new Error();
-          caracteristicas = arr;
-        } catch {
-          return res.status(400).json({
-            message: "Campo 'caracteristicas' deve ser um array JSON válido",
-          });
-        }
+propertyRouter.post("/", verifyToken, upload.single("imagem"), async (req: AuthRequest, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "Imagem é obrigatória" });
+
+    let caracteristicas: string[] | undefined;
+    if (req.body.caracteristicas) {
+      try {
+        const arr = JSON.parse(req.body.caracteristicas);
+        if (!Array.isArray(arr) || !arr.every((c) => typeof c === "string")) throw new Error();
+        caracteristicas = arr;
+      } catch {
+        return res.status(400).json({ message: "Campo 'caracteristicas' deve ser um array JSON válido" });
       }
-
-      const parsed = createSchema.safeParse({
-        ...req.body,
-        caracteristicas,
-        imagem: `/uploads/${req.file.filename}`,
-      });
-      if (!parsed.success) {
-        return res
-          .status(400)
-          .json({ message: "Dados inválidos", errors: fieldErrors(parsed.error) });
-      }
-
-      const created = await prisma.property.create({
-        data: { ...parsed.data, userId: req.user.id },
-        select: { id: true, uuid: true, ...Object.fromEntries(Object.keys(parsed.data).map(k => [k, true])) },
-      });
-
-      res.status(201).json(created);
-    } catch (err) {
-      console.error("Erro ao criar imóvel:", err);
-      res.status(500).json({ message: "Erro ao criar imóvel" });
     }
-  }
-);
 
-/* =========================================================
-   Atualizar imóvel (aceita id ou uuid)
-   ========================================================= */
-propertyRouter.put(
-  "/:identifier",
-  verifyToken,
-  upload.single("imagem"),
-  async (req: AuthRequest, res) => {
-    const { identifier } = req.params;
-    const whereUnique = /^\d+$/.test(identifier)
-      ? { id: Number(identifier) }
-      : { uuid: identifier };
-
-    try {
-      const property = await prisma.property.findUnique({ where: whereUnique });
-      if (!property) return res.status(404).json({ message: "Imóvel não encontrado" });
-      if (property.userId !== req.user.id)
-        return res.status(403).json({ message: "Sem permissão" });
-
-      let caracteristicas: string[] | undefined;
-      if (req.body.caracteristicas) {
-        try {
-          const arr = JSON.parse(req.body.caracteristicas);
-          if (!Array.isArray(arr) || !arr.every((c) => typeof c === "string"))
-            throw new Error();
-          caracteristicas = arr;
-        } catch {
-          return res.status(400).json({
-            message: "Campo 'caracteristicas' deve ser um array JSON válido",
-          });
-        }
-      }
-
-      const imagem = req.file ? `/uploads/${req.file.filename}` : property.imagem;
-
-      const parsed = updateSchema.safeParse({
-        ...req.body,
-        caracteristicas,
-        imagem,
-      });
-      if (!parsed.success) {
-        return res
-          .status(400)
-          .json({ message: "Dados inválidos", errors: fieldErrors(parsed.error) });
-      }
-
-      const updated = await prisma.property.update({
-        where: whereUnique,
-        data: parsed.data,
-        select: { id: true, uuid: true, ...Object.fromEntries(Object.keys(parsed.data).map(k => [k, true])) },
-      });
-
-      res.json(updated);
-    } catch (err) {
-      console.error("Erro ao atualizar imóvel:", err);
-      res.status(500).json({ message: "Erro ao atualizar imóvel" });
+    const parsed = createSchema.safeParse({
+      ...req.body,
+      caracteristicas,
+      imagem: `/uploads/${req.file.filename}`,
+    });
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Dados inválidos", errors: fieldErrors(parsed.error) });
     }
-  }
-);
 
-/* =========================================================
-   Alterar status ativo/inativo (aceita id ou uuid)
-   ========================================================= */
+    const data = { ...parsed.data, userId: req.user.id };
+
+    const created = await prisma.property.create({ data });
+    res.status(201).json(created);
+  } catch (err) {
+    console.error("Erro ao criar imóvel:", err);
+    res.status(500).json({ message: "Erro ao criar imóvel" });
+  }
+});
+
+
+propertyRouter.put("/:identifier", verifyToken, upload.single("imagem"), async (req: AuthRequest, res) => {
+  const { identifier } = req.params;
+  const whereUnique = /^\d+$/.test(identifier) ? { id: Number(identifier) } : { uuid: identifier };
+
+  try {
+    const property = await prisma.property.findUnique({ where: whereUnique });
+    if (!property) return res.status(404).json({ message: "Imóvel não encontrado" });
+    if (property.userId !== req.user.id) return res.status(403).json({ message: "Sem permissão" });
+
+    let caracteristicas: string[] | undefined;
+    if (req.body.caracteristicas) {
+      try {
+        const arr = JSON.parse(req.body.caracteristicas);
+        if (!Array.isArray(arr) || !arr.every((c) => typeof c === "string")) throw new Error();
+        caracteristicas = arr;
+      } catch {
+        return res.status(400).json({ message: "Campo 'caracteristicas' deve ser um array JSON válido" });
+      }
+    }
+
+    const imagem = req.file ? `/uploads/${req.file.filename}` : property.imagem;
+
+    const parsed = updateSchema.safeParse({ ...req.body, caracteristicas, imagem });
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Dados inválidos", errors: fieldErrors(parsed.error) });
+    }
+
+    const updated = await prisma.property.update({ where: whereUnique, data: parsed.data });
+    res.json(updated);
+  } catch (err) {
+    console.error("Erro ao atualizar imóvel:", err);
+    res.status(500).json({ message: "Erro ao atualizar imóvel" });
+  }
+});
+
+
 propertyRouter.patch("/:identifier/ativo", verifyToken, async (req: AuthRequest, res) => {
   const { identifier } = req.params;
   const { ativo } = req.body as { ativo?: boolean };
 
-  if (typeof ativo !== "boolean")
-    return res.status(400).json({ error: "Campo 'ativo' é obrigatório e boolean" });
+  if (typeof ativo !== "boolean") return res.status(400).json({ error: "Campo 'ativo' é obrigatório e boolean" });
 
-  const whereUnique = /^\d+$/.test(identifier)
-    ? { id: Number(identifier) }
-    : { uuid: identifier };
+  const whereUnique = /^\d+$/.test(identifier) ? { id: Number(identifier) } : { uuid: identifier };
 
   try {
-    const property = await prisma.property.findFirst({
-      where: { ...whereUnique, userId: req.user.id },
-    });
+    const property = await prisma.property.findFirst({ where: { ...whereUnique, userId: req.user.id } });
     if (!property) return res.status(404).json({ error: "Imóvel não encontrado" });
 
     const updated = await prisma.property.update({
@@ -371,7 +331,7 @@ propertyRouter.patch("/:identifier/ativo", verifyToken, async (req: AuthRequest,
 });
 
 /* =========================================================
-   Registrar visualização (aceita id ou uuid)
+   Registrar visualização
    ========================================================= */
 propertyRouter.post("/:identifier/view", async (req: AuthRequest, res) => {
   const { identifier } = req.params;
@@ -384,11 +344,7 @@ propertyRouter.post("/:identifier/view", async (req: AuthRequest, res) => {
     if (!property) return res.status(404).json({ error: "Imóvel não encontrado" });
 
     const recent = await prisma.propertyView.findFirst({
-      where: {
-        propertyId: property.id,
-        userId,
-        viewedAt: { gte: new Date(Date.now() - 2000) },
-      },
+      where: { propertyId: property.id, userId, viewedAt: { gte: new Date(Date.now() - 2000) } },
     });
 
     if (!recent) {
@@ -403,7 +359,7 @@ propertyRouter.post("/:identifier/view", async (req: AuthRequest, res) => {
 });
 
 /* =========================================================
-   Registrar contato (aceita id ou uuid)
+   Registrar contato
    ========================================================= */
 propertyRouter.post("/:identifier/contact", async (req: AuthRequest, res) => {
   const { identifier } = req.params;
@@ -414,12 +370,9 @@ propertyRouter.post("/:identifier/contact", async (req: AuthRequest, res) => {
     const property = await prisma.property.findUnique({
       where: /^\d+$/.test(identifier) ? { id: Number(identifier) } : { uuid: identifier },
     });
-    if (!property || !property.ativo)
-      return res.status(404).json({ error: "Imóvel não encontrado ou inativo" });
+    if (!property || !property.ativo) return res.status(404).json({ error: "Imóvel não encontrado ou inativo" });
 
-    await prisma.propertyContact.create({
-      data: { propertyId: property.id, userId, nome, email, telefone, mensagem },
-    });
+    await prisma.propertyContact.create({ data: { propertyId: property.id, userId, nome, email, telefone, mensagem } });
 
     res.status(201).json({ success: true });
   } catch (err) {
@@ -429,19 +382,16 @@ propertyRouter.post("/:identifier/contact", async (req: AuthRequest, res) => {
 });
 
 /* =========================================================
-   Exclusão lógica (aceita id ou uuid)
+   Exclusão lógica
    ========================================================= */
 propertyRouter.delete("/:identifier", verifyToken, async (req: AuthRequest, res) => {
   const { identifier } = req.params;
-  const whereUnique = /^\d+$/.test(identifier)
-    ? { id: Number(identifier) }
-    : { uuid: identifier };
+  const whereUnique = /^\d+$/.test(identifier) ? { id: Number(identifier) } : { uuid: identifier };
 
   try {
     const property = await prisma.property.findUnique({ where: whereUnique });
     if (!property) return res.status(404).json({ message: "Imóvel não encontrado" });
-    if (property.userId !== req.user.id)
-      return res.status(403).json({ message: "Sem permissão" });
+    if (property.userId !== req.user.id) return res.status(403).json({ message: "Sem permissão" });
 
     await prisma.property.update({ where: whereUnique, data: { ativo: false } });
     await prisma.favorite.deleteMany({ where: { propertyId: property.id } });
@@ -452,3 +402,5 @@ propertyRouter.delete("/:identifier", verifyToken, async (req: AuthRequest, res)
     res.status(500).json({ message: "Erro ao desativar imóvel" });
   }
 });
+
+export default propertyRouter;

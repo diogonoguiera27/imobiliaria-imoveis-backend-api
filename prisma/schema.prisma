@@ -29,9 +29,7 @@ model Property {
   userId          Int?
   caracteristicas String[]          @default([])
   ativo           Boolean           @default(true)
-  /// ✅ UUID já existente no banco
   uuid            String?           @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
   favorites       Favorite[]
   user            User?             @relation(fields: [userId], references: [id])
   contacts        PropertyContact[]
@@ -39,6 +37,7 @@ model Property {
 
   @@index([cidade])
   @@index([userId])
+  @@index([cidade], map: "idx_property_cidade")
 }
 
 model User {
@@ -52,9 +51,7 @@ model User {
   updatedAt      DateTime                 @updatedAt
   avatarUrl      String?
   ultimoAcesso   DateTime                 @default(now())
-  /// ✅ UUID já existente no banco
   uuid           String?                  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
   favorites      Favorite[]
   preferencias   NotificacaoPreferencia[]
   passwordResets PasswordReset[]
@@ -62,6 +59,8 @@ model User {
   contacts       PropertyContact[]
   views          PropertyView[]
   simulations    Simulation[]
+
+  @@index([cidade], map: "idx_user_cidade")
 }
 
 model Simulation {
@@ -72,9 +71,7 @@ model Simulation {
   installmentValue Float
   date             DateTime @default(now())
   userId           Int
-  /// ✅ UUID já existente no banco
   uuid             String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
   user             User     @relation(fields: [userId], references: [id])
 }
 
@@ -86,9 +83,7 @@ model NotificacaoPreferencia {
   porPush   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  /// ✅ UUID já existente no banco
   uuid      String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, tipo])
@@ -99,9 +94,7 @@ model Favorite {
   userId     Int
   propertyId Int
   createdAt  DateTime @default(now())
-  /// ✅ UUID já existente no banco
   uuid       String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
   property   Property @relation(fields: [propertyId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
 
@@ -116,9 +109,7 @@ model PasswordReset {
   verifiedAt DateTime?
   usedAt     DateTime?
   createdAt  DateTime  @default(now())
-  /// ✅ UUID já existente no banco
   uuid       String?   @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
   user       User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
@@ -129,9 +120,7 @@ model PropertyView {
   propertyId Int
   userId     Int?
   viewedAt   DateTime @default(now())
-  /// ✅ UUID já existente no banco
   uuid       String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
   property   Property @relation(fields: [propertyId], references: [id])
   user       User?    @relation(fields: [userId], references: [id])
 
@@ -148,9 +137,7 @@ model PropertyContact {
   telefone   String?
   mensagem   String?
   createdAt  DateTime @default(now())
-  /// ✅ UUID já existente no banco
   uuid       String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
   property   Property @relation(fields: [propertyId], references: [id])
   user       User?    @relation(fields: [userId], references: [id])
 

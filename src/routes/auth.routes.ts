@@ -1,4 +1,4 @@
-// src/routes/auth.routes.ts
+                                                      
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -7,18 +7,14 @@ import { sendEmail } from "../utils/sendEmail";
 export const authRouter = Router();
 const prisma = new PrismaClient();
 
-// 🔑 Gera um código numérico de 6 dígitos
+
 function generate6DigitCode() {
   return String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
 }
 
 const CODE_EXP_MIN = Number(process.env.RESET_CODE_EXP_MIN || 10);
 
-/**
- * 🔹 Envia um código de redefinição de senha para o e-mail informado
- * - Usa `userId` interno para armazenar no banco
- * - Retorna apenas mensagem genérica para não expor se o e-mail existe
- */
+
 authRouter.post("/forgot-password", async (req, res) => {
   const { email } = req.body as { email?: string };
 
@@ -29,12 +25,12 @@ authRouter.post("/forgot-password", async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { email } });
 
-    // ✅ Sempre responde genericamente para evitar enumeração de usuários
+    
     if (!user) {
       return res.json({ message: "Se houver conta, enviaremos um código." });
     }
 
-    // Apaga resets antigos não usados
+    
     await prisma.passwordReset.deleteMany({
       where: { userId: user.id, usedAt: null },
     });
@@ -64,10 +60,7 @@ authRouter.post("/forgot-password", async (req, res) => {
   }
 });
 
-/**
- * 🔹 Verifica se o código enviado é válido
- * - Marca o reset como verificado caso o código seja correto
- */
+
 authRouter.post("/verify-reset-code", async (req, res) => {
   const { email, code } = req.body as { email?: string; code?: string };
 
@@ -105,7 +98,7 @@ authRouter.post("/verify-reset-code", async (req, res) => {
 
     return res.json({
       message: "Código verificado com sucesso.",
-      // ✅ Retorna também uuid do usuário para front-end opcionalmente usar em links
+      
       userUuid: user.uuid ?? null,
     });
   } catch (error) {
@@ -114,10 +107,7 @@ authRouter.post("/verify-reset-code", async (req, res) => {
   }
 });
 
-/**
- * 🔹 Redefine a senha do usuário
- * - Exige que o código tenha sido verificado
- */
+
 authRouter.post("/reset-password", async (req, res) => {
   const { email, newPassword } = req.body as {
     email?: string;
@@ -168,14 +158,13 @@ authRouter.post("/reset-password", async (req, res) => {
       data: { usedAt: new Date() },
     });
 
-    // Limpeza de resets pendentes
     await prisma.passwordReset.deleteMany({
       where: { userId: user.id, usedAt: null },
     });
 
     return res.json({
       message: "Senha redefinida com sucesso.",
-      userUuid: user.uuid ?? null, // ✅ Opcional para o front
+      userUuid: user.uuid ?? null, 
     });
   } catch (error) {
     console.error("reset-password error:", error);

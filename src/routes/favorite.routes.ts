@@ -1,4 +1,4 @@
-// src/routes/favorite.routes.ts
+
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
 import { verifyToken } from "../middlewares/verifyToken";
@@ -6,11 +6,7 @@ import { verifyToken } from "../middlewares/verifyToken";
 export const favoriteRouter = Router();
 const prisma = new PrismaClient();
 
-/**
- * ➕ Adiciona imóvel aos favoritos
- * - Aceita `propertyUuid` (preferencial para front) ou `propertyId` (compatibilidade interna)
- * - Retorna também o `uuid` do favorite para eventual uso externo
- */
+
 favoriteRouter.post("/", verifyToken, async (req, res) => {
   const userId = req.user.id;
   const { propertyUuid, propertyId } = req.body as {
@@ -25,7 +21,7 @@ favoriteRouter.post("/", verifyToken, async (req, res) => {
   }
 
   try {
-    // 🔎 Busca o imóvel pela chave recebida
+    
     const property = propertyUuid
       ? await prisma.property.findUnique({ where: { uuid: propertyUuid } })
       : await prisma.property.findUnique({ where: { id: Number(propertyId) } });
@@ -34,7 +30,7 @@ favoriteRouter.post("/", verifyToken, async (req, res) => {
       return res.status(404).json({ error: "Imóvel não encontrado." });
     }
 
-    // ✅ Evita duplicidade
+    
     const exists = await prisma.favorite.findFirst({
       where: { userId, propertyId: property.id },
     });
@@ -48,7 +44,7 @@ favoriteRouter.post("/", verifyToken, async (req, res) => {
       data: { userId, propertyId: property.id },
       select: {
         id: true,
-        uuid: true,      // uuid do registro de Favorite
+        uuid: true,      
         propertyId: true,
       },
     });
@@ -60,11 +56,7 @@ favoriteRouter.post("/", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * ❌ Remove imóvel dos favoritos
- * - Aceita `propertyUuid` ou `propertyId` na URL
- * - Mantém busca interna pelo `id` real do Property
- */
+
 favoriteRouter.delete("/:identifier", verifyToken, async (req, res) => {
   const userId = req.user.id;
   const identifier = req.params.identifier;
@@ -72,7 +64,7 @@ favoriteRouter.delete("/:identifier", verifyToken, async (req, res) => {
   try {
     let propertyId: number | null = null;
 
-    // UUID (formato padrão de 36 chars)
+    
     if (/^[0-9a-fA-F-]{36}$/.test(identifier)) {
       const property = await prisma.property.findUnique({
         where: { uuid: identifier },
@@ -82,7 +74,7 @@ favoriteRouter.delete("/:identifier", verifyToken, async (req, res) => {
         return res.status(404).json({ error: "Imóvel não encontrado." });
       propertyId = property.id;
     }
-    // ID numérico
+    
     else if (!isNaN(Number(identifier))) {
       propertyId = Number(identifier);
     } else {
@@ -100,11 +92,7 @@ favoriteRouter.delete("/:identifier", verifyToken, async (req, res) => {
   }
 });
 
-/**
- * 📥 Lista favoritos do usuário logado
- * - Retorna **ambos**: `propertyId` (interno) e `propertyUuid` (público)
- * - Permite que o front use somente o UUID em URLs
- */
+
 favoriteRouter.get("/", verifyToken, async (req, res) => {
   const userId = req.user.id;
 
@@ -115,7 +103,7 @@ favoriteRouter.get("/", verifyToken, async (req, res) => {
         property: {
           select: {
             id: true,
-            uuid: true, // ✅ UUID do imóvel para uso público
+            uuid: true, 
           },
         },
       },

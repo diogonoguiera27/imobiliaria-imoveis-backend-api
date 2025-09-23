@@ -8,6 +8,7 @@ import { authRouter } from "./auth.routes";
 import { dashboardRouter } from "./dashboard.routes";
 
 
+
 const routes = Router();
 
 routes.use("/property", propertyRouter);
@@ -17,5 +18,6 @@ routes.use("/notifications", notificationRouter);
 routes.use("/favorites", favoriteRouter);
 routes.use("/auth", authRouter);
 routes.use("/dashboard", dashboardRouter);
+
 
 export default routes;

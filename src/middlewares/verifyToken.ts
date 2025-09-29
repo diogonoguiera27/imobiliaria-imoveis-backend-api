@@ -7,14 +7,14 @@ export type TokenPayload = JwtPayload & {
   id: number;
   email?: string;
   nome?: string;
-  tipo?: string;
+  role?: "ADMIN" | "USER";
 };
 
 
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: number; email?: string; nome?: string; tipo?: string };
+      user?: { id: number; email?: string; nome?: string; role?: "ADMIN" | "USER"; };
     }
   }
 }
@@ -41,7 +41,7 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
   try {
     const decoded = jwt.verify(token, secret) as TokenPayload;
 
-    // sanity check mínimo: exigimos apenas 'id'
+    
     if (!decoded || typeof decoded !== "object" || !decoded.id) {
       return res.status(401).json({ error: "Token inválido" });
     }
@@ -50,7 +50,7 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
       id: decoded.id,
       email: decoded.email,
       nome: decoded.nome,
-      tipo: decoded.tipo,
+      role: decoded.role,
     };
 
     return next();

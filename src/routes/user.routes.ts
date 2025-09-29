@@ -1,24 +1,30 @@
-
 import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { uploadAvatar } from "../middlewares/upload";
 import { verifyToken } from "../middlewares/verifyToken";
+import { isAdmin } from "../middlewares/isAdmin";
 
 export const userRouter = Router();
 const prisma = new PrismaClient();
 
-
+/* =========================================================
+   Registro
+   ========================================================= */
 userRouter.post("/register", async (req, res) => {
   try {
     const { nome, telefone, email, senha, cidade } = req.body;
 
     if (
-      !nome || typeof nome !== "string" ||
-      !email || typeof email !== "string" ||
-      !senha || typeof senha !== "string" ||
-      !telefone || typeof telefone !== "string" ||
+      !nome ||
+      typeof nome !== "string" ||
+      !email ||
+      typeof email !== "string" ||
+      !senha ||
+      typeof senha !== "string" ||
+      !telefone ||
+      typeof telefone !== "string" ||
       !cidade
     ) {
       return res.status(400).json({ error: "Dados inválidos ou incompletos." });
@@ -37,6 +43,7 @@ userRouter.post("/register", async (req, res) => {
         email,
         senha: hashedPassword,
         cidade,
+        role: "USER", // sempre cria como USER
       },
     });
 
@@ -48,7 +55,9 @@ userRouter.post("/register", async (req, res) => {
   }
 });
 
-
+/* =========================================================
+   Login
+   ========================================================= */
 userRouter.post("/login", async (req, res) => {
   const { email, senha } = req.body;
   if (!email || !senha)
@@ -71,9 +80,12 @@ userRouter.post("/login", async (req, res) => {
       data: { ultimoAcesso: now },
     });
 
-    const token = jwt.sign({ id: user.id, email: user.email }, secret, {
-      expiresIn: "2h",
-    });
+    // 🔑 Inclui role no token
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      secret,
+      { expiresIn: "2h" }
+    );
 
     return res.json({
       message: "Login bem-sucedido",
@@ -87,6 +99,7 @@ userRouter.post("/login", async (req, res) => {
         avatarUrl: user.avatarUrl,
         createdAt: user.createdAt,
         ultimoAcesso: now.toISOString(),
+        role: user.role,
       },
     });
   } catch (error) {
@@ -95,7 +108,9 @@ userRouter.post("/login", async (req, res) => {
   }
 });
 
-
+/* =========================================================
+   Perfil atual (/me)
+   ========================================================= */
 userRouter.get("/me", verifyToken, async (req, res) => {
   try {
     if (!req.user?.id) {
@@ -113,6 +128,7 @@ userRouter.get("/me", verifyToken, async (req, res) => {
         avatarUrl: true,
         createdAt: true,
         ultimoAcesso: true,
+        role: true,
       },
     });
 
@@ -127,33 +143,44 @@ userRouter.get("/me", verifyToken, async (req, res) => {
   }
 });
 
-
-userRouter.get("/", verifyToken, async (req, res) => {
+/* =========================================================
+   Listagem de usuários (somente ADMIN)
+   ========================================================= */
+userRouter.get("/", verifyToken, isAdmin, async (req, res) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
+    // 🔹 impedir cache (evita 304)
+    res.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    res.set("Surrogate-Control", "no-store");
+
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const take = Math.max(1, parseInt(req.query.take as string) || 10);
+    const skip = (page - 1) * take;
 
     const totalUsers = await prisma.user.count();
 
     const users = await prisma.user.findMany({
       skip,
-      take: limit,
+      take,
       orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        nome: true,
-        email: true,
-        cidade: true,
-        telefone: true,
-        avatarUrl: true,
-        createdAt: true,
+      include: {
         _count: { select: { properties: true } },
       },
     });
 
     const formattedUsers = users.map((u) => ({
-      ...u,
+      id: u.id,
+      nome: u.nome,
+      email: u.email,
+      cidade: u.cidade,
+      telefone: u.telefone,
+      avatarUrl: u.avatarUrl,
+      createdAt: u.createdAt,
+      role: u.role,
       quantidadeImoveis: u._count.properties,
     }));
 
@@ -162,8 +189,8 @@ userRouter.get("/", verifyToken, async (req, res) => {
       pagination: {
         total: totalUsers,
         page,
-        limit,
-        totalPages: Math.ceil(totalUsers / limit),
+        take,
+        totalPages: Math.ceil(totalUsers / take),
       },
     });
   } catch (error) {
@@ -172,7 +199,9 @@ userRouter.get("/", verifyToken, async (req, res) => {
   }
 });
 
-
+/* =========================================================
+   Deletar usuário
+   ========================================================= */
 userRouter.delete("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
 
@@ -189,7 +218,9 @@ userRouter.delete("/:id", verifyToken, async (req, res) => {
   }
 });
 
-
+/* =========================================================
+   Upload de avatar
+   ========================================================= */
 interface MulterRequest extends Request {
   file: Express.Multer.File;
 }
@@ -226,7 +257,9 @@ userRouter.post(
   }
 );
 
-
+/* =========================================================
+   Alterar email
+   ========================================================= */
 userRouter.put("/:id/email", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
   const { newEmail, motivo } = req.body;
@@ -237,7 +270,9 @@ userRouter.put("/:id/email", verifyToken, async (req, res) => {
     }
 
     if (!motivo || motivo.trim().length < 3) {
-      return res.status(400).json({ error: "Motivo da alteração é obrigatório" });
+      return res
+        .status(400)
+        .json({ error: "Motivo da alteração é obrigatório" });
     }
 
     if (!newEmail || typeof newEmail !== "string" || !newEmail.includes("@")) {
@@ -255,7 +290,9 @@ userRouter.put("/:id/email", verifyToken, async (req, res) => {
   }
 });
 
-
+/* =========================================================
+   Alterar senha
+   ========================================================= */
 userRouter.put("/:id/password", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
   const { currentPassword, newPassword } = req.body;
@@ -286,7 +323,9 @@ userRouter.put("/:id/password", verifyToken, async (req, res) => {
   }
 });
 
-
+/* =========================================================
+   Atualizar perfil
+   ========================================================= */
 userRouter.put("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
   const { nome, telefone, cidade, avatarUrl } = req.body;
@@ -307,14 +346,18 @@ userRouter.put("/:id", verifyToken, async (req, res) => {
       data,
     });
 
-    return res.status(200).json({ message: "Usuário atualizado", user: updatedUser });
+    return res
+      .status(200)
+      .json({ message: "Usuário atualizado", user: updatedUser });
   } catch (error) {
     console.error("Erro ao atualizar usuário:", error);
     return res.status(500).json({ error: "Erro interno ao atualizar usuário" });
   }
 });
 
-
+/* =========================================================
+   Overview do usuário (favoritos + simulações)
+   ========================================================= */
 userRouter.get("/:id/overview", verifyToken, async (req, res) => {
   const userId = Number(req.params.id);
 
@@ -334,6 +377,7 @@ userRouter.get("/:id/overview", verifyToken, async (req, res) => {
         avatarUrl: true,
         createdAt: true,
         ultimoAcesso: true,
+        role: true,
       },
     });
 
@@ -350,3 +394,5 @@ userRouter.get("/:id/overview", verifyToken, async (req, res) => {
     return res.status(500).json({ error: "Erro ao carregar visão geral" });
   }
 });
+
+export default userRouter;

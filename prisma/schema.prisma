@@ -59,8 +59,14 @@ model User {
   contacts       PropertyContact[]
   views          PropertyView[]
   simulations    Simulation[]
+  role           UserRole                    @default(USER)
 
   @@index([cidade], map: "idx_user_cidade")
+}
+
+enum UserRole {
+   ADMIN
+   USER
 }
 
 model Simulation {

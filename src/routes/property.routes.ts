@@ -99,7 +99,7 @@ propertyRouter.post("/by-ids", async (req, res) => {
 
 
 propertyRouter.get("/", async (req, res) => {
-  // 🔹 Desativa cache
+  
   res.setHeader(
     "Cache-Control",
     "no-store, no-cache, must-revalidate, proxy-revalidate"
@@ -112,38 +112,34 @@ propertyRouter.get("/", async (req, res) => {
       cidade,
       tipo,
       precoMax,
-      categoria, // 👈 filtro adicional
+      categoria, 
       page = "1",
       take = "10",
     } = req.query;
 
-    // 🔹 Paginação
+    
     const pageNum = Math.max(1, parseInt(page as string, 10));
     const takeNum = Math.max(1, parseInt(take as string, 10));
     const skip = (pageNum - 1) * takeNum;
 
     const filters: any = { ativo: true };
 
-    // 🔹 Filtro por tipo (ex.: Apartamento, Casa, etc.)
+    
     if (tipo && typeof tipo === "string") {
       filters.tipo = { equals: tipo, mode: "insensitive" };
     }
 
-    // 🔹 Filtro por categoria (ex.: popular, destaque, promoção)
+    
     if (categoria && typeof categoria === "string") {
       filters.categoria = { equals: categoria, mode: "insensitive" };
     }
 
-    // 🔹 Filtro por preço máximo
+    
     if (precoMax && !isNaN(Number(precoMax))) {
       filters.preco = { gte: 50_000, lte: Number(precoMax) };
     }
 
-    // ========================================================
-    // 🔹 Se houver filtro de cidade, aplicamos comparação exata
-    //     com normalização para não confundir "Goiânia" e
-    //     "Aparecida de Goiânia"
-    // ========================================================
+    
     if (cidade && typeof cidade === "string") {
       const normalizado = cidade
         .normalize("NFD")
@@ -182,9 +178,7 @@ propertyRouter.get("/", async (req, res) => {
       });
     }
 
-    // ========================================================
-    // 🔹 Caso não tenha filtro de cidade, segue a consulta normal
-    // ========================================================
+   
     const [total, list] = await Promise.all([
       prisma.property.count({ where: filters }),
       prisma.property.findMany({
@@ -246,9 +240,7 @@ propertyRouter.post("/busca", async (req, res) => {
   }
 });
 
-/* =========================================================
-   Meus imóveis (com paginação e filtros)
-   ========================================================= */
+
 propertyRouter.get("/mine", verifyToken, async (req: AuthRequest, res) => {
   res.setHeader(
     "Cache-Control",
@@ -262,33 +254,33 @@ propertyRouter.get("/mine", verifyToken, async (req: AuthRequest, res) => {
 
     const filters: any = { userId: req.user.id };
 
-    // 🔹 Filtro por cidade (contains, insensitivo, não some mais na paginação)
+    
     if (cidade && typeof cidade === "string") {
       filters.cidade = { contains: cidade, mode: "insensitive" };
     }
 
-    // 🔹 Filtro por tipo de imóvel
+    
     if (tipo && typeof tipo === "string") {
       filters.tipo = { equals: tipo, mode: "insensitive" };
     }
 
-    // 🔹 Filtro por tipo de negócio (Venda / Aluguel)
+    
     if (negocio && typeof negocio === "string") {
       filters.tipoNegocio = { equals: negocio, mode: "insensitive" };
     }
 
-    // 🔹 Filtro por status (ativo / inativo)
+    
     if (ativo !== undefined) {
       if (ativo === "true") filters.ativo = true;
       if (ativo === "false") filters.ativo = false;
     }
 
-    // 🔹 Paginação
+    
     const pageNum = Math.max(1, parseInt(page as string, 10));
     const takeNum = Math.max(1, parseInt(take as string, 10));
     const skip = (pageNum - 1) * takeNum;
 
-    // 🔹 Busca paginada
+    
     const [total, list] = await Promise.all([
       prisma.property.count({ where: filters }),
       prisma.property.findMany({
@@ -615,38 +607,8 @@ propertyRouter.post("/:identifier/contact", async (req: AuthRequest, res) => {
   }
 });
 
-/* =========================================================
-   Exclusão lógica
-   ========================================================= */
-propertyRouter.delete(
-  "/:identifier",
-  verifyToken,
-  async (req: AuthRequest, res) => {
-    const { identifier } = req.params;
-    const whereUnique = /^\d+$/.test(identifier)
-      ? { id: Number(identifier) }
-      : { uuid: identifier };
 
-    try {
-      const property = await prisma.property.findUnique({ where: whereUnique });
-      if (!property)
-        return res.status(404).json({ message: "Imóvel não encontrado" });
-      if (property.userId !== req.user.id)
-        return res.status(403).json({ message: "Sem permissão" });
 
-      await prisma.property.update({
-        where: whereUnique,
-        data: { ativo: false },
-      });
-      await prisma.favorite.deleteMany({ where: { propertyId: property.id } });
-
-      res.json({ message: "Imóvel desativado com sucesso" });
-    } catch (err) {
-      console.error("Erro DELETE /property:", err);
-      res.status(500).json({ message: "Erro ao desativar imóvel" });
-    }
-  }
-);
 
   
 propertyRouter.get("/mine/cities", verifyToken, async (req: AuthRequest, res) => {
@@ -656,7 +618,7 @@ propertyRouter.get("/mine/cities", verifyToken, async (req: AuthRequest, res) =>
       select: { cidade: true },
     });
 
-    // 🔹 Normalizar (tirar acentos e padronizar capitalização)
+    
     const cidades = Array.from(
       new Map(
         cidadesRaw
@@ -664,10 +626,10 @@ propertyRouter.get("/mine/cities", verifyToken, async (req: AuthRequest, res) =>
           .map((c) => {
             const normalizada = c.cidade!
               .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "") // remove acento
+              .replace(/[\u0300-\u036f]/g, "") 
               .toLowerCase()
               .trim();
-            return [normalizada, c.cidade!.trim()]; // chave = normalizado, valor = original
+            return [normalizada, c.cidade!.trim()]; 
           })
       ).values()
     ).sort((a, b) => a.localeCompare(b, "pt-BR"));

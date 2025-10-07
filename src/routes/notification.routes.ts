@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 
 notificationRouter.post("/", verifyToken, async (req, res) => {
   const { tipo, porEmail, porPush } = req.body;
-  const userId = req.user.id;
+  const userId = req.user!.id;
 
   if (
     typeof tipo !== "string" ||
@@ -70,7 +70,7 @@ notificationRouter.post("/", verifyToken, async (req, res) => {
 
 
 notificationRouter.get("/", verifyToken, async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user!.id;
 
   try {
     const preferencias = await prisma.notificacaoPreferencia.findMany({

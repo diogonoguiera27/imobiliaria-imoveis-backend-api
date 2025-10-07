@@ -1,14 +1,12 @@
 import { Router, Request } from "express";
-import { PrismaClient } from "@prisma/client";
-import { verifyToken } from "../middlewares/verifyToken";
+import { Prisma, PrismaClient } from "@prisma/client";
+import { verifyToken } from "@/middlewares/verifyToken";
 import { z } from "zod";
 import fs from "fs";
 import multer from "multer";
 import path from "path";
 
-export interface AuthRequest extends Request {
-  user: { id: number; nome?: string; email: string };
-}
+
 
 const prisma = new PrismaClient();
 
@@ -241,7 +239,7 @@ propertyRouter.post("/busca", async (req, res) => {
 });
 
 
-propertyRouter.get("/mine", verifyToken, async (req: AuthRequest, res) => {
+propertyRouter.get("/mine", verifyToken, async (req: Request, res) => {
   res.setHeader(
     "Cache-Control",
     "no-store, no-cache, must-revalidate, proxy-revalidate"
@@ -252,7 +250,7 @@ propertyRouter.get("/mine", verifyToken, async (req: AuthRequest, res) => {
   try {
     const { cidade, tipo, negocio, ativo, page = "1", take = "8" } = req.query;
 
-    const filters: any = { userId: req.user.id };
+    const filters: Prisma.PropertyWhereInput = { userId: req.user!.id };
 
     
     if (cidade && typeof cidade === "string") {
@@ -381,7 +379,7 @@ propertyRouter.post(
   "/",
   verifyToken,
   upload.single("imagem"),
-  async (req: AuthRequest, res) => {
+  async (req: Request, res) => {
     try {
       if (!req.file)
         return res.status(400).json({ message: "Imagem é obrigatória" });
@@ -416,7 +414,7 @@ propertyRouter.post(
           });
       }
 
-      const data = { ...parsed.data, userId: req.user.id };
+      const data = { ...parsed.data, userId: req.user!.id };
 
       const created = await prisma.property.create({ data });
       res.status(201).json(created);
@@ -431,7 +429,7 @@ propertyRouter.put(
   "/:identifier",
   verifyToken,
   upload.single("imagem"),
-  async (req: AuthRequest, res) => {
+  async (req: Request, res) => {
     const { identifier } = req.params;
     const whereUnique = /^\d+$/.test(identifier)
       ? { id: Number(identifier) }
@@ -441,7 +439,7 @@ propertyRouter.put(
       const property = await prisma.property.findUnique({ where: whereUnique });
       if (!property)
         return res.status(404).json({ message: "Imóvel não encontrado" });
-      if (property.userId !== req.user.id)
+      if (property.userId !== req.user!.id)
         return res.status(403).json({ message: "Sem permissão" });
 
       // 🔹 Tratar 'caracteristicas' tanto como string JSON quanto array
@@ -499,7 +497,7 @@ propertyRouter.put(
 propertyRouter.patch(
   "/:identifier/ativo",
   verifyToken,
-  async (req: AuthRequest, res) => {
+  async (req: Request, res) => {
     const { identifier } = req.params;
     const { ativo } = req.body as { ativo?: boolean };
 
@@ -514,7 +512,7 @@ propertyRouter.patch(
 
     try {
       const property = await prisma.property.findFirst({
-        where: { ...whereUnique, userId: req.user.id },
+        where: { ...whereUnique, userId: req.user!.id },
       });
       if (!property)
         return res.status(404).json({ error: "Imóvel não encontrado" });
@@ -536,7 +534,7 @@ propertyRouter.patch(
 /* =========================================================
    Registrar visualização
    ========================================================= */
-propertyRouter.post("/:identifier/view", async (req: AuthRequest, res) => {
+propertyRouter.post("/:identifier/view", async (req: Request, res) => {
   const { identifier } = req.params;
   const userId = req.user?.id ?? null;
 
@@ -573,7 +571,7 @@ propertyRouter.post("/:identifier/view", async (req: AuthRequest, res) => {
 /* =========================================================
    Registrar contato
    ========================================================= */
-propertyRouter.post("/:identifier/contact", async (req: AuthRequest, res) => {
+propertyRouter.post("/:identifier/contact", async (req: Request, res) => {
   const { identifier } = req.params;
   const userId = req.user?.id ?? null;
   const { nome, email, telefone, mensagem } = req.body;
@@ -611,10 +609,10 @@ propertyRouter.post("/:identifier/contact", async (req: AuthRequest, res) => {
 
 
   
-propertyRouter.get("/mine/cities", verifyToken, async (req: AuthRequest, res) => {
+propertyRouter.get("/mine/cities", verifyToken, async (req: Request, res) => {
   try {
     const cidadesRaw = await prisma.property.findMany({
-      where: { userId: req.user.id },
+      where: { userId: req.user!.id },
       select: { cidade: true },
     });
 

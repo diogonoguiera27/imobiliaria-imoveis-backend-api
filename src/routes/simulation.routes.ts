@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 
 simulationRouter.post("/", verifyToken, async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user!.id;
   const { title, entry, installments, installmentValue } = req.body;
 
   if (
@@ -53,7 +53,7 @@ simulationRouter.post("/", verifyToken, async (req, res) => {
 
 simulationRouter.get("/users/:idOrUuid/simulations", verifyToken, async (req, res) => {
   const { idOrUuid } = req.params;
-  const loggedUserId = req.user.id;
+  const loggedUserId = req.user!.id;
 
   try {
     let userIdToFetch: number | null = null;

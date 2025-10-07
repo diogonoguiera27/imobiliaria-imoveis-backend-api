@@ -1,10 +1,12 @@
 import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { PrismaClient } from '../generated/prisma';
-import routes from './routes';
+import { PrismaClient } from '@prisma/client';
+
 import path from "path";
 import { errors, isCelebrateError } from 'celebrate';
+import routes from './routes';
+
 
 dotenv.config();
 

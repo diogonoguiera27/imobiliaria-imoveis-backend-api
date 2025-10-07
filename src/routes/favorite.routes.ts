@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
    🔹 Adicionar imóvel aos favoritos
    ========================================================= */
 favoriteRouter.post("/", verifyToken, async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user!.id;
   const { propertyUuid, propertyId } = req.body as {
     propertyUuid?: string;
     propertyId?: number;
@@ -60,7 +60,7 @@ favoriteRouter.post("/", verifyToken, async (req, res) => {
    🔹 Remover imóvel dos favoritos
    ========================================================= */
 favoriteRouter.delete("/:identifier", verifyToken, async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user!.id;
   const identifier = req.params.identifier;
 
   try {
@@ -99,7 +99,7 @@ favoriteRouter.delete("/:identifier", verifyToken, async (req, res) => {
    🔹 Listar imóveis favoritos (com paginação)
    ========================================================= */
 favoriteRouter.get("/", verifyToken, async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user!.id;
   const page = parseInt(req.query.page as string) || 1;
   const take = parseInt(req.query.take as string) || 6; // padrão 6 por página
   const skip = (page - 1) * take;

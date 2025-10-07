@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { propertyRouter } from "./property.routes";
-import { userRouter } from "./user.routes";
-import { simulationRouter } from "./simulation.routes";
-import { notificationRouter } from "./notification.routes";
-import { favoriteRouter } from "./favorite.routes";
-import { authRouter } from "./auth.routes";
-import { dashboardRouter } from "./dashboard.routes";
+
+import { userRouter }  from "@/routes/user.routes";
+import { simulationRouter } from "@/routes/simulation.routes";
+import { notificationRouter } from "@/routes/notification.routes";
+import { favoriteRouter } from "@/routes/favorite.routes";
+import { authRouter } from "@/routes/auth.routes";
+import { dashboardRouter } from "@/routes/dashboard.routes";
+import { propertyRouter } from "@/routes/property.routes";
 
 
 

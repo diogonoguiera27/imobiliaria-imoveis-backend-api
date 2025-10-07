@@ -1,22 +1,47 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "module": "commonjs",
-    "esModuleInterop": true,
-    "moduleResolution": "node",
-    "sourceMap": true,
-    "outDir": "dist",
+    /* =========================================================
+       🔧 Configurações básicas de compilação
+    ========================================================= */
+    "target": "ES2020",                    // Compatível com Node moderno
+    "module": "commonjs",                  // Usado no Node.js
+    "rootDir": "src",                      // Código-fonte principal
+    "outDir": "dist",                      // Saída de build
+    "moduleResolution": "node",            // Resolve módulos no padrão Node
+    "esModuleInterop": true,               // Permite importar módulos CommonJS
+    "allowJs": true,                       // Permite arquivos JS junto do TS
+    "sourceMap": true,                     // Gera mapas para debug
+
+    /* =========================================================
+       🧠 Suporte a decorators e metadados (caso use TypeORM, etc)
+    ========================================================= */
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "allowJs": true,
-    "baseUrl": ".",
+
+    /* =========================================================
+       ⚙️ Checagem e otimizações
+    ========================================================= */
+    "strict": true,                        // Habilita modo estrito de tipagem
+    "skipLibCheck": true,                  // Ignora verificação de libs
+    "forceConsistentCasingInFileNames": true, // Evita conflito de maiúsculas/minúsculas
+
+    /* =========================================================
+       🧩 Aliases (para usar "@/pasta/arquivo")
+    ========================================================= */
+    "baseUrl": "./src",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["*"]
     }
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["**.d.ts", "node_modules"],
-  "lib": ["es2015"]
+
+  /* =========================================================
+     📂 Inclusão e exclusão de pastas
+  ========================================================= */
+  "include": ["src/**/*", "src/types/**/*.d.ts"],
+  "exclude": ["node_modules", "dist"],
+
+  /* =========================================================
+     📘 Bibliotecas padrão
+  ========================================================= */
+  "lib": ["ES2020"]
 }

@@ -27,14 +27,14 @@ export async function postLoginUserService({ email, senha }: PostLoginInput) {
     throw new Error("MISSING_SECRET");
   }
 
-  // atualizar último acesso
+  
   const now = new Date();
   await prisma.user.update({
     where: { id: user.id },
     data: { ultimoAcesso: now },
   });
 
-  // gerar token JWT com role
+  
   const token = jwt.sign(
     { id: user.id, email: user.email, role: user.role },
     secret,

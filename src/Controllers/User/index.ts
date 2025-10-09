@@ -4,10 +4,10 @@ import { getUserByIdService } from "@/Services/User/getUserByIdService";
 import { getUserOverviewService } from "@/Services/User/getUserOverviewService";
 import { postLoginUserService } from "@/Services/User/postLoginUserService";
 import { postRegisterUserService } from "@/Services/User/postRegisterUserService";
-import { updateUserAvatarService } from "@/Services/User/updateUserAvatarService";
-import { updateUserEmailService } from "@/Services/User/updateUserEmailService";
-import { updateUserPasswordService } from "@/Services/User/updateUserPasswordService";
-import { updateUserProfileService } from "@/Services/User/updateUserProfileService";
+import { updateUserAvatarService } from "@/Services/User/putUserAvatarService";
+import { updateUserEmailService } from "@/Services/User/putUserEmailService";
+import { updateUserPasswordService } from "@/Services/User/putUserPasswordService";
+import { updateUserProfileService } from "@/Services/User/putUserProfileService";
 import { Request, Response } from "express";
 
 

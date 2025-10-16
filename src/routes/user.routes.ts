@@ -1,12 +1,10 @@
-import { Router, Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { Router } from "express";
 import { uploadAvatar } from "@/middlewares/upload";
 import { verifyToken } from "@/middlewares/verifyToken";
 import { isAdmin } from "@/middlewares/isAdmin";
 import UserController from "@/Controllers/User";
 
 export const userRouter = Router();
-const prisma = new PrismaClient();
 const userController = new UserController(); 
 
 

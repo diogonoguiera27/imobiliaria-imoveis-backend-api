@@ -8,13 +8,17 @@ export async function getAllUsersService(page: number, take: number) {
   const totalUsers = await prisma.user.count();
 
   const users = await prisma.user.findMany({
-    skip,
-    take,
-    orderBy: { createdAt: "desc" },
-    include: {
-      _count: { select: { properties: true } },
-    },
-  });
+      skip,
+      take,
+      orderBy: {
+        properties: {
+          _count: "desc", // ✅ ordena pelo total de imóveis
+        },
+      },
+      include: {
+        _count: { select: { properties: true } },
+      },
+    });
 
   const formattedUsers = users.map((u) => ({
     id: u.id,

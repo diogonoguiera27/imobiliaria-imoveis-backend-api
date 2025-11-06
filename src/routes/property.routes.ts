@@ -5,6 +5,7 @@ import { z } from "zod";
 import fs from "fs";
 import multer from "multer";
 import path from "path";
+import { authorizeRoles } from "@/middlewares/authorizeRoles";
 
 
 
@@ -378,6 +379,7 @@ propertyRouter.get("/:identifier", async (req, res) => {
 propertyRouter.post(
   "/",
   verifyToken,
+  authorizeRoles("ADMIN", "CORRETOR"),
   upload.single("imagem"),
   async (req: Request, res) => {
     try {
@@ -428,6 +430,7 @@ propertyRouter.post(
 propertyRouter.put(
   "/:identifier",
   verifyToken,
+  authorizeRoles("ADMIN", "CORRETOR"),
   upload.single("imagem"),
   async (req: Request, res) => {
     const { identifier } = req.params;
@@ -497,6 +500,7 @@ propertyRouter.put(
 propertyRouter.patch(
   "/:identifier/ativo",
   verifyToken,
+  authorizeRoles("ADMIN", "CORRETOR"),
   async (req: Request, res) => {
     const { identifier } = req.params;
     const { ativo } = req.body as { ativo?: boolean };

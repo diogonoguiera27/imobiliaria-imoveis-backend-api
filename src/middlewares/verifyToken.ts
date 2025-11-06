@@ -7,14 +7,14 @@ export type TokenPayload = JwtPayload & {
   id: number;
   email?: string;
   nome?: string;
-  role?: "ADMIN" | "USER";
+  role?: "ADMIN" | "USER" | "CORRETOR";
 };
 
 
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: number; email?: string; nome?: string; role?: "ADMIN" | "USER"; };
+      user?: { id: number; email?: string; nome?: string; role?: "ADMIN" | "USER"| "CORRETOR"; };
     }
   }
 }

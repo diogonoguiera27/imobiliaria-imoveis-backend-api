@@ -9,6 +9,7 @@ interface PostRegisterUserInput {
   email: string;
   senha: string;
   cidade: string;
+  
 }
 
 export async function postRegisterUserService(input: PostRegisterUserInput) {

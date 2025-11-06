@@ -27,21 +27,26 @@ export async function postLoginUserService({ email, senha }: PostLoginInput) {
     throw new Error("MISSING_SECRET");
   }
 
-  
+  // Atualiza último acesso
   const now = new Date();
   await prisma.user.update({
     where: { id: user.id },
     data: { ultimoAcesso: now },
   });
 
-  
+  // Normaliza role (em maiúsculo)
+  const role = user.role?.toUpperCase() || "USER";
+
+  // Gera token JWT
   const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
+    { id: user.id, email: user.email, role },
     secret,
     { expiresIn: "2h" }
   );
 
+  // Retorna para o frontend
   return {
+    message: `Login bem-sucedido como ${role}`,
     token,
     user: {
       id: user.id,
@@ -52,7 +57,7 @@ export async function postLoginUserService({ email, senha }: PostLoginInput) {
       avatarUrl: user.avatarUrl,
       createdAt: user.createdAt,
       ultimoAcesso: now.toISOString(),
-      role: user.role,
+      role,
     },
   };
 }

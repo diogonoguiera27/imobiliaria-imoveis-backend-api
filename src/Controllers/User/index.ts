@@ -253,34 +253,32 @@ export default class UserController {
   }
   
   async postLogin(req: Request, res: Response) {
+  try {
+    const { email, senha } = req.body;
 
-    try {
-      const { email, senha } = req.body;
-
-      if (!email || !senha) {
-        return res.status(400).json({ error: "Email e senha são obrigatórios." });
-      }
-
-      try {
-        const result = await postLoginUserService({ email, senha });;
-
-
-        return res.json({
-          message: "Login bem-sucedido",
-          ...result,
-        });
-      } catch (error: any) {
-        if (error.message === "INVALID_CREDENTIALS") {
-          return res.status(401).json({ error: "Credenciais inválidas." });
-        }
-        if (error.message === "MISSING_SECRET") {
-          return res.status(500).json({ error: "JWT_SECRET ausente." });
-        }
-        throw error;
-      }
-    } catch (error) {
-      console.error("Erro no login:", error);
-      return res.status(500).json({ error: "Erro no login." });
+    if (!email || !senha) {
+      return res.status(400).json({ error: "Email e senha são obrigatórios." });
     }
+
+    const result = await postLoginUserService({ email, senha });
+
+    // ✅ mensagem adaptada conforme o papel do usuário
+    return res.status(200).json({
+      message: `Login bem-sucedido como ${result.user.role}`,
+      token: result.token,
+      user: result.user,
+    });
+  } catch (error: any) {
+    if (error.message === "INVALID_CREDENTIALS") {
+      return res.status(401).json({ error: "Credenciais inválidas." });
+    }
+    if (error.message === "MISSING_SECRET") {
+      return res.status(500).json({ error: "JWT_SECRET ausente." });
+    }
+
+    console.error("Erro no login:", error);
+    return res.status(500).json({ error: "Erro no login." });
   }
+}
+
 }

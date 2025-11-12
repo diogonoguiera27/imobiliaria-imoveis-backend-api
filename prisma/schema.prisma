@@ -60,6 +60,8 @@ model User {
   views          PropertyView[]
   simulations    Simulation[]
   role           UserRole                    @default(USER)
+  mensagensEnviadas  Mensagem[]           @relation("MensagensEnviadas")
+  mensagensRecebidas Mensagem[]           @relation("MensagensRecebidas")
 
   @@index([cidade], map: "idx_user_cidade")
 }
@@ -150,4 +152,20 @@ model PropertyContact {
 
   @@index([propertyId])
   @@index([userId])
+}
+
+model Mensagem {
+  id              Int      @id @default(autoincrement())
+  conteudo        String
+  remetenteId     Int
+  destinatarioId  Int
+  criadoEm        DateTime @default(now())
+  lida           Boolean   @default(false)  // 👈 NOVO CAMPO
+
+  uuid            String?  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  remetente       User     @relation("MensagensEnviadas", fields: [remetenteId], references: [id])
+  destinatario    User     @relation("MensagensRecebidas", fields: [destinatarioId], references: [id])
+
+  @@index([remetenteId])
+  @@index([destinatarioId])
 }

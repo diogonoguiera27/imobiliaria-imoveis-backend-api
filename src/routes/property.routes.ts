@@ -643,5 +643,68 @@ propertyRouter.get("/mine/cities", verifyToken, async (req: Request, res) => {
   }
 });
 
+propertyRouter.get("/:identifier/corretor", async (req, res) => {
+  const { identifier } = req.params;
+
+  try {
+    // 🔍 Permite tanto ID numérico quanto UUID
+    const whereUnique = /^\d+$/.test(identifier)
+      ? { id: Number(identifier) }
+      : { uuid: identifier };
+
+    // 🔹 Busca o imóvel + o usuário dono
+    const property = await prisma.property.findUnique({
+      where: whereUnique,
+      include: {
+        user: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            telefone: true,
+            avatarUrl: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    // ⚠️ Caso o imóvel não exista
+    if (!property) {
+      return res.status(404).json({ error: "Imóvel não encontrado." });
+    }
+
+    // ⚠️ Caso o imóvel não tenha usuário vinculado
+    if (!property.user) {
+      return res
+        .status(404)
+        .json({ error: "Este imóvel não possui corretor vinculado." });
+    }
+
+    // ✅ Monta os dados do corretor (ou responsável)
+    const corretor = {
+      id: property.user.id,
+      nome: property.user.nome,
+      email: property.user.email,
+      telefone: property.user.telefone,
+      avatarUrl:
+        property.user.avatarUrl ||
+        `https://i.pravatar.cc/150?u=${property.user.id}`,
+      role: property.user.role,
+    };
+
+    // 🟢 Log mais explícito (útil para debug)
+    console.log(
+      `📡 Corretor encontrado para imóvel ${identifier}: ${corretor.nome} (${corretor.role})`
+    );
+
+    // ✅ Retorna sempre, mesmo que não seja "CORRETOR"
+    return res.json({ corretor });
+  } catch (error) {
+    console.error("❌ Erro ao buscar corretor:", error);
+    return res.status(500).json({ error: "Erro interno ao buscar corretor." });
+  }
+});
+
 
 export default propertyRouter;

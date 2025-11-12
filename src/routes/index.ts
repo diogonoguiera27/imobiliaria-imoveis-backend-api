@@ -7,6 +7,7 @@ import { favoriteRouter } from "@/routes/favorite.routes";
 import { authRouter } from "@/routes/auth.routes";
 import { dashboardRouter } from "@/routes/dashboard.routes";
 import { propertyRouter } from "@/routes/property.routes";
+import { chatRouter } from "./chat.routes";
 
 
 
@@ -19,6 +20,6 @@ routes.use("/notifications", notificationRouter);
 routes.use("/favorites", favoriteRouter);
 routes.use("/auth", authRouter);
 routes.use("/dashboard", dashboardRouter);
-
+routes.use("/chat", chatRouter);
 
 export default routes;

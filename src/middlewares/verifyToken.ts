@@ -61,3 +61,40 @@ export function verifyToken(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ error: "Token inválido" });
   }
 }
+
+export function verifyTokenOptional(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const token = extractBearerToken(req.header("authorization"));
+
+  // NENHUM token enviado → segue como visitante
+  if (!token) {
+    return next();
+  }
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    console.error("JWT_SECRET não definido");
+    return next(); // Não quebra rota pública
+  }
+
+  try {
+    const decoded = jwt.verify(token, secret) as TokenPayload;
+
+    if (decoded && typeof decoded === "object" && decoded.id) {
+      req.user = {
+        id: decoded.id,
+        email: decoded.email,
+        nome: decoded.nome,
+        role: decoded.role,
+      };
+    }
+  } catch {
+    // Token inválido → simplesmente ignora
+    console.warn("⚠ Token opcional ignorado (inválido ou expirado)");
+  }
+
+  return next();
+}

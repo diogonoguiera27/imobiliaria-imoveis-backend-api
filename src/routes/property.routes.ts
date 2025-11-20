@@ -1,6 +1,6 @@
 import { Router, Request } from "express";
 import { Prisma, PrismaClient } from "@prisma/client";
-import { verifyToken } from "@/middlewares/verifyToken";
+import { verifyToken, verifyTokenOptional } from "@/middlewares/verifyToken";
 import { z } from "zod";
 import fs from "fs";
 import multer from "multer";
@@ -40,6 +40,12 @@ function normalize(str: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+function isUuid(str: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(str)
+  );
 }
 
 const baseSchema = z.object({
@@ -97,12 +103,8 @@ propertyRouter.post("/by-ids", async (req, res) => {
 });
 
 
-propertyRouter.get("/", async (req, res) => {
-  
-  res.setHeader(
-    "Cache-Control",
-    "no-store, no-cache, must-revalidate, proxy-revalidate"
-  );
+propertyRouter.get("/", verifyTokenOptional, async (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
@@ -111,34 +113,46 @@ propertyRouter.get("/", async (req, res) => {
       cidade,
       tipo,
       precoMax,
-      categoria, 
+      categoria,
       page = "1",
       take = "10",
     } = req.query;
 
-    
     const pageNum = Math.max(1, parseInt(page as string, 10));
     const takeNum = Math.max(1, parseInt(take as string, 10));
     const skip = (pageNum - 1) * takeNum;
 
     const filters: any = { ativo: true };
 
-    
     if (tipo && typeof tipo === "string") {
       filters.tipo = { equals: tipo, mode: "insensitive" };
     }
 
-    
     if (categoria && typeof categoria === "string") {
       filters.categoria = { equals: categoria, mode: "insensitive" };
     }
 
-    
     if (precoMax && !isNaN(Number(precoMax))) {
       filters.preco = { gte: 50_000, lte: Number(precoMax) };
     }
 
-    
+    // =========================================================
+    // 🔥 CAPTURA FAVORITOS (SE O TOKEN ESTIVER PRESENTE)
+    // =========================================================
+    let favoritosMap: Record<number, boolean> = {};
+
+    if (req.user?.id) {
+      const favoritos = await prisma.favorite.findMany({
+        where: { userId: req.user.id },
+        select: { propertyId: true },
+      });
+
+      favoritosMap = Object.fromEntries(favoritos.map((f) => [f.propertyId, true]));
+    }
+
+    // =========================================================
+    // 🔍 FILTRO DE CIDADE (MANUAL)
+    // =========================================================
     if (cidade && typeof cidade === "string") {
       const normalizado = cidade
         .normalize("NFD")
@@ -167,7 +181,10 @@ propertyRouter.get("/", async (req, res) => {
       const paginated = filtrados.slice(skip, skip + takeNum);
 
       return res.json({
-        data: paginated,
+        data: paginated.map((imovel) => ({
+          ...imovel,
+          isFavorito: !!favoritosMap[imovel.id],
+        })),
         pagination: {
           total: filtrados.length,
           page: pageNum,
@@ -177,7 +194,9 @@ propertyRouter.get("/", async (req, res) => {
       });
     }
 
-   
+    // =========================================================
+    // 🔍 CONSULTA NORMAL SEM FILTRO DE CIDADE
+    // =========================================================
     const [total, list] = await Promise.all([
       prisma.property.count({ where: filters }),
       prisma.property.findMany({
@@ -186,15 +205,18 @@ propertyRouter.get("/", async (req, res) => {
         skip,
         take: takeNum,
         include: {
-          user: {
-            select: { id: true, uuid: true, nome: true, telefone: true },
-          },
+          user: { select: { id: true, uuid: true, nome: true, telefone: true } },
         },
       }),
     ]);
 
-    res.json({
-      data: list,
+    const data = list.map((imovel) => ({
+      ...imovel,
+      isFavorito: !!favoritosMap[imovel.id],
+    }));
+
+    return res.json({
+      data,
       pagination: {
         total,
         page: pageNum,
@@ -314,9 +336,13 @@ propertyRouter.get("/mine", verifyToken, async (req: Request, res) => {
 propertyRouter.get("/similares/:identifier", async (req, res) => {
   const { identifier } = req.params;
   try {
-    const whereUnique = /^\d+$/.test(identifier)
+    const whereUnique: any = /^\d+$/.test(identifier)
       ? { id: Number(identifier) }
-      : { uuid: identifier };
+      : isUuid(identifier)
+      ? { uuid: identifier }
+      : null;
+
+    if (!whereUnique) return res.status(400).json({ error: "Identificador inválido" });
 
     const current = await prisma.property.findUnique({ where: whereUnique });
     if (!current)
@@ -355,9 +381,13 @@ propertyRouter.get("/similares/:identifier", async (req, res) => {
 
 propertyRouter.get("/:identifier", async (req, res) => {
   const { identifier } = req.params;
-  const whereUnique = /^\d+$/.test(identifier)
+  const whereUnique: any = /^\d+$/.test(identifier)
     ? { id: Number(identifier) }
-    : { uuid: identifier };
+    : isUuid(identifier)
+    ? { uuid: identifier }
+    : null;
+
+  if (!whereUnique) return res.status(400).json({ error: "Identificador inválido" });
 
   try {
     const imovel = await prisma.property.findUnique({

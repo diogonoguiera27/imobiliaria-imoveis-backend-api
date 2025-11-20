@@ -6,38 +6,59 @@ export const favoriteRouter = Router();
 const prisma = new PrismaClient();
 
 /* =========================================================
-   🔹 Adicionar imóvel aos favoritos
+   🔹 Adicionar imóvel aos favoritos (ID ou UUID)
    ========================================================= */
 favoriteRouter.post("/", verifyToken, async (req, res) => {
   const userId = req.user!.id;
-  const { propertyUuid, propertyId } = req.body as {
+  let { propertyUuid, propertyId } = req.body as {
     propertyUuid?: string;
     propertyId?: number;
   };
 
-  if (!propertyUuid && !propertyId) {
-    return res
-      .status(400)
-      .json({ error: "Informe propertyUuid ou propertyId." });
-  }
-
   try {
-    const property = propertyUuid
-      ? await prisma.property.findUnique({ where: { uuid: propertyUuid } })
-      : await prisma.property.findUnique({ where: { id: Number(propertyId) } });
+    if (typeof propertyUuid === "string") {
+      propertyUuid = propertyUuid.trim().toLowerCase();
+
+      if (
+        propertyUuid === "" ||
+        propertyUuid === "null" ||
+        propertyUuid === "undefined" ||
+        propertyUuid.length !== 36
+      ) {
+        propertyUuid = undefined;
+      }
+    }
+
+    if (!propertyUuid && !propertyId) {
+      
+      return res.status(400).json({
+        error: "Informe propertyUuid ou propertyId válido.",
+      });
+    }
+
+    let property;
+
+    if (propertyUuid) {
+      property = await prisma.property.findUnique({
+        where: { uuid: propertyUuid },
+      });
+    } else {
+      property = await prisma.property.findUnique({
+        where: { id: Number(propertyId) },
+      });
+    }
 
     if (!property) {
       return res.status(404).json({ error: "Imóvel não encontrado." });
     }
 
-    // Verifica duplicado
-    const exists = await prisma.favorite.findFirst({
+    const existing = await prisma.favorite.findFirst({
       where: { userId, propertyId: property.id },
     });
-    if (exists) {
-      return res
-        .status(400)
-        .json({ message: "Imóvel já está nos favoritos." });
+    
+    if (existing) {
+      
+      return res.status(200).json(existing); 
     }
 
     const favorito = await prisma.favorite.create({
@@ -51,14 +72,14 @@ favoriteRouter.post("/", verifyToken, async (req, res) => {
 
     return res.status(201).json(favorito);
   } catch (error) {
-    console.error("Erro ao adicionar favorito:", error);
-    return res.status(500).json({ error: "Erro ao adicionar favorito." });
+
+    return res.status(500).json({
+      error: "Erro ao adicionar favorito.",
+    });
   }
 });
 
-/* =========================================================
-   🔹 Remover imóvel dos favoritos
-   ========================================================= */
+
 favoriteRouter.delete("/:identifier", verifyToken, async (req, res) => {
   const userId = req.user!.id;
   const identifier = req.params.identifier;
@@ -66,8 +87,24 @@ favoriteRouter.delete("/:identifier", verifyToken, async (req, res) => {
   try {
     let propertyId: number | null = null;
 
-    // Se for UUID
-    if (/^[0-9a-fA-F-]{36}$/.test(identifier)) {
+    // 1️⃣ Se identifier é número → pode ser favoriteId ou propertyId
+    if (/^\d+$/.test(identifier)) {
+      const favId = Number(identifier);
+
+      const fav = await prisma.favorite.findUnique({
+        where: { id: favId },
+        select: { propertyId: true },
+      });
+
+      if (fav) {
+        propertyId = fav.propertyId;
+      } else {
+        propertyId = favId;
+      }
+    }
+
+    // 2️⃣ Se for UUID do property
+    else if (/^[0-9a-fA-F-]{36}$/.test(identifier)) {
       const property = await prisma.property.findUnique({
         where: { uuid: identifier },
         select: { id: true },
@@ -77,10 +114,9 @@ favoriteRouter.delete("/:identifier", verifyToken, async (req, res) => {
       }
       propertyId = property.id;
     }
-    // Se for ID numérico
-    else if (!isNaN(Number(identifier))) {
-      propertyId = Number(identifier);
-    } else {
+
+    // 3️⃣ Identificador inválido
+    else {
       return res.status(400).json({ error: "Identificador inválido." });
     }
 
@@ -90,18 +126,15 @@ favoriteRouter.delete("/:identifier", verifyToken, async (req, res) => {
 
     return res.status(204).send();
   } catch (error) {
-    console.error("Erro ao remover favorito:", error);
     return res.status(500).json({ error: "Erro ao remover favorito." });
   }
 });
 
-/* =========================================================
-   🔹 Listar imóveis favoritos (com paginação)
-   ========================================================= */
+
 favoriteRouter.get("/", verifyToken, async (req, res) => {
   const userId = req.user!.id;
   const page = parseInt(req.query.page as string) || 1;
-  const take = parseInt(req.query.take as string) || 6; // padrão 6 por página
+  const take = parseInt(req.query.take as string) || 6;
   const skip = (page - 1) * take;
 
   try {
@@ -122,9 +155,7 @@ favoriteRouter.get("/", verifyToken, async (req, res) => {
               tipoNegocio: true,
               preco: true,
               imagem: true,
-              user: {
-                select: { id: true, nome: true, email: true },
-              },
+              user: { select: { id: true, nome: true, email: true } },
             },
           },
         },
@@ -133,10 +164,8 @@ favoriteRouter.get("/", verifyToken, async (req, res) => {
       prisma.favorite.count({ where: { userId } }),
     ]);
 
-    const list = favoritos.map((f) => f.property);
-
     return res.json({
-      data: list,
+      data: favoritos.map((f) => f.property),
       pagination: {
         total,
         page,
@@ -145,7 +174,7 @@ favoriteRouter.get("/", verifyToken, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Erro ao buscar favoritos:", error);
+    
     return res.status(500).json({ error: "Erro ao buscar favoritos." });
   }
 });

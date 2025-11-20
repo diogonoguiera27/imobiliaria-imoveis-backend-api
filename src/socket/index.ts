@@ -17,7 +17,7 @@ export function setupWebSocket(
   }
 ) {
   io = new Server(server, {
-    cors: config.corsOptions, // ✅ Usa exatamente as mesmas opções do server.ts
+    cors: config.corsOptions, 
     pingTimeout: 60000,
     pingInterval: 25000,
   });
